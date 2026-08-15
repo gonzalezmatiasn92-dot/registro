@@ -13,19 +13,35 @@ def inyectar_estilos():
         </style>
     """, unsafe_allow_html=True)
 
-def renderizar_sidebar(balances, hoy):
-    st.sidebar.header("🗓️ Alertas de Cronograma")
+def renderizar_sidebar_completa(balances, totales_dia, hoy):
+    st.sidebar.header("🗓️ Panel de Control & Estadísticas")
+    
+    # Identificar quincena actual
     nombre_q = "1ra Quincena" if hoy.day <= 15 else "2da Quincena"
-    st.sidebar.markdown(f"### 📊 Acumulado {nombre_q}")
-    st.sidebar.info(f"**Sellados + Patentes:**\n\n {logica.formato_moneda(balances['quincena_obligaciones'])}")
-    st.sidebar.markdown(f"### 📈 Acumulado Mensual")
+    
+    st.sidebar.markdown(f"### 📊 Acumulados Históricos")
+    st.sidebar.info(f"**Total ARBA ({nombre_q}):**\n\n {logica.formato_moneda(balances['quincena_obligaciones'])}")
     st.sidebar.success(f"**Total Aranceles Mes:**\n\n {logica.formato_moneda(balances['aranceles_mes'])}")
+    st.sidebar.warning(f"**💵 Efectivo Acumulado Caja:**\n\n {logica.formato_moneda(balances['efectivo_acumulado'])}")
 
-    if hoy.day == 15 or (hoy + timedelta(days=1)).day == 1:
-        st.sidebar.error("🚨 **¡HOY CIERRA LA QUINCENA!** Liquidar Sellados y Patentes.")
-    if hoy.weekday() == 1:
-        st.sidebar.error("🚨 **¡HOY ES MARTES!** Corresponde pagar el concepto 'Otros'.")
     st.sidebar.write("---")
+    st.sidebar.markdown("### 📈 Resumen Neto del Día")
+    st.sidebar.caption(f"📚 **Aranceles Hoy:** {logica.formato_moneda(totales_dia['aranceles'])}")
+    st.sidebar.caption(f"📜 **Sellados Hoy:** {logica.formato_moneda(totales_dia['sellados'])}")
+    st.sidebar.caption(f"🚗 **Patentes Hoy:** {logica.formato_moneda(totales_dia['patentes'])}")
+    st.sidebar.caption(f"📁 **Otros Hoy:** {logica.formato_moneda(totales_dia['otros'])}")
+    st.sidebar.caption(f"📉 **Gastos Hoy:** {logica.formato_moneda(abs(totales_dia['gastos']))}")
+    
+    st.sidebar.markdown("**Totales por Medio de Pago:**")
+    st.sidebar.caption(f"💳 **Total Débito:** {logica.formato_moneda(totales_dia['debito'])}")
+    st.sidebar.caption(f"📲 **Total Transferencias:** {logica.formato_moneda(totales_dia['transferencia'])}")
+    st.sidebar.markdown(f"⭐ **NETO TOTAL DEL DÍA:**\n\n **{logica.formato_moneda(totales_dia['total_neto'])}**")
+
+    st.sidebar.write("---")
+    if hoy.day == 15 or (hoy + timedelta(days=1)).day == 1:
+        st.sidebar.error("🚨 **¡HOY CIERRA LA QUINCENA!** Liquidar Obligaciones.")
+    if hoy.weekday() == 1:
+        st.sidebar.error("🚨 **¡HOY ES MARTES!** Corresponde pagar 'Otros'.")
 
 def renderizar_formulario_cobros(supabase, fk):
     with st.expander("➕ Cargar Cobro / Gasto Combinado Diario", expanded=True):
