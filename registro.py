@@ -25,14 +25,26 @@ if st.session_state.caja_cerrada:
 movimientos_nube = conexion.traer_movimientos(supabase)
 balances = logica.calcular_balances_historicos(movimientos_nube, fecha_actual)
 
-# 3. RENDERIZADO DE LA BARRA LATERAL
-componentes.renderizar_sidebar(balances, datetime.now())
+# 3. EXTRAER EN TIEMPO REAL LOS TOTALES DEL DÍA
+totales_dia = {
+    "aranceles": sum(float(m.get("aranceles", 0.0)) for m in movimientos_nube),
+    "sellados": sum(float(m.get("sellados", 0.0)) for m in movimientos_nube),
+    "patentes": sum(float(m.get("patentes", 0.0)) for m in movimientos_nube),
+    "otros": sum(float(m.get("otros", 0.0)) for m in movimientos_nube),
+    "gastos": sum(float(m.get("gastos", 0.0)) for m in movimientos_nube),
+    "debito": sum(float(m.get("debito", 0.0)) for m in movimientos_nube),
+    "transferencia": sum(float(m.get("transferencia", 0.0)) for m in movimientos_nube),
+    "total_neto": sum(float(m.get("total_neto", 0.0)) for m in movimientos_nube)
+}
 
-# 4. FORMULARIO PRINCIPAL DE COBROS DIARIOS
+# 4. RENDERIZADO DE LA BARRA LATERAL COMPLETA (Muda estadísticas ahí)
+componentes.renderizar_sidebar_completa(balances, totales_dia, datetime.now())
+
+# 5. FORMULARIO PRINCIPAL DE COBROS DIARIOS
 if not st.session_state.caja_cerrada:
     componentes.renderizar_formulario_cobros(supabase, st.session_state.form_key)
 
-# 5. PLANILLA VISIBLE SINCRONIZADA
+# 6. PLANILLA VISIBLE SINCRONIZADA
 st.write("---")
 st.subheader("📋 Movimientos Sincronizados Hoy (Todas las computadoras)")
 depositos_hoy_lista = []
@@ -66,34 +78,7 @@ if len(movimientos_nube) > 0:
                 st.rerun()
 else:
     st.info("No hay registros guardados en la nube para el día de hoy.")
-# 6. MÉTRICAS DIARIAS Y MEDIOS DE PAGO COLECTIVOS
-st.write("---")
-st.subheader("📊 Totales Generales de la Oficina (Consolidado Histórico)")
-
-tot_aranceles = sum(float(m.get("aranceles", 0.0)) for m in movimientos_nube)
-tot_sellados = sum(float(m.get("sellados", 0.0)) for m in movimientos_nube)
-tot_patentes = sum(float(m.get("patentes", 0.0)) for m in movimientos_nube)
-tot_otros = sum(float(m.get("otros", 0.0)) for m in movimientos_nube)
-tot_gastos = sum(float(m.get("gastos", 0.0)) for m in movimientos_nube)
-tot_debito = sum(float(m.get("debito", 0.0)) for m in movimientos_nube)
-tot_transf = sum(float(m.get("transferencia", 0.0)) for m in movimientos_nube)
-tot_general = sum(float(m.get("total_neto", 0.0)) for m in movimientos_nube)
-
-c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("📚 Aranceles (Hoy)", logica.formato_moneda(tot_aranceles))
-c2.metric("📜 Sellados (Hoy)", logica.formato_moneda(tot_sellados))
-c3.metric("🚗 Patentes (Hoy)", logica.formato_moneda(tot_patentes))
-c4.metric("📁 Otros (Hoy)", logica.formato_moneda(tot_otros))
-c5.metric("📉 Gastos (Hoy)", logica.formato_moneda(abs(tot_gastos)))
-
-st.write("### Totales por Medio de Pago Colectivo")
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("💵 EFECTIVO TOTAL ACUMULADO (En Caja)", logica.formato_moneda(balances["efectivo_acumulado"]))
-m2.metric("💳 Total Débito", logica.formato_moneda(tot_debito))
-m3.metric("📲 Total Transferencias", logica.formato_moneda(tot_transf))
-m4.metric("⭐ NETO TOTAL DEL DÍA", logica.formato_moneda(tot_general))
-
-# 7. PANEL DE CIERRE DE CAJA, ARQUEO Y BALANCES PERMANENTES
+# 7. PANEL DE CIERRE DE CAJA, ARQUEO Y BALANCES PERMANENTES (Sección Inferior Limpia)
 st.write("---")
 st.subheader("🧮 Panel de Cierre de Caja y Arqueo General (Fin del Día)")
 col_auditoria, col_billetes, col_validacion = st.columns(3)
@@ -162,14 +147,14 @@ with col_billetes:
 with col_validacion:
     st.markdown("### 📊 Resultado de la Auditoría")
     error_conceptos = False
-    if val_aranceles and n_val_aranceles != tot_aranceles:
-        st.error(f"❌ Error en Aranceles: Sistema dice {logica.formato_moneda(tot_aranceles)} y cargaste {logica.formato_moneda(n_val_aranceles)}")
+    if val_aranceles and n_val_aranceles != totales_dia['aranceles']:
+        st.error(f"❌ Error en Aranceles: Sistema dice {logica.formato_moneda(totales_dia['aranceles'])} y cargaste {logica.formato_moneda(n_val_aranceles)}")
         error_conceptos = True
-    if val_sellados and n_val_sellados != tot_sellados:
-        st.error(f"❌ Error en Sellados: Sistema dice {logica.formato_moneda(tot_sellados)} y cargaste {logica.formato_moneda(n_val_sellados)}")
+    if val_sellados and n_val_sellados != totales_dia['sellados']:
+        st.error(f"❌ Error en Sellados: Sistema dice {logica.formato_moneda(totales_dia['sellados'])} y cargaste {logica.formato_moneda(n_val_sellados)}")
         error_conceptos = True
-    if val_patentes and n_val_patentes != tot_patentes:
-        st.error(f"❌ Error en Patentes: Sistema dice {logica.formato_moneda(tot_patentes)} y cargaste {logica.formato_moneda(n_val_patentes)}")
+    if val_patentes and n_val_patentes != totales_dia['patentes']:
+        st.error(f"❌ Error en Patentes: Sistema dice {logica.formato_moneda(totales_dia['patentes'])} y cargaste {logica.formato_moneda(n_val_patentes)}")
         error_conceptos = True
         
     if not error_conceptos and val_aranceles and val_sellados and val_patentes:
