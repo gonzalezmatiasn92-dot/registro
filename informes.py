@@ -2,25 +2,26 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from logica import parsear_fecha_supabase, obtener_fecha_argentina
+# CORREGIDO: Importamos get_column_letter para resolver el ancho de forma segura
+from openpyxl.utils import get_column_letter
 
 def generar_excel_contable(df_filtrado):
     """
     Genera un archivo binario de Excel (.xlsx) formateado de manera profesional
-    utilizando un buffer de memoria BytesIO.
+    corrigiendo el ciclo de vida de las tuplas de openpyxl.
     """
     output = BytesIO()
     
-    # Columnas ordenadas y limpias para el contador
     columnas_reporte = [
-        "id", "fecha_operacion_legible", "detalle", "aranceles", "sellados", "patentes", 
+        "id", "fecha_operacion_legible", "operador", "detalle", "aranceles", "sellados", "patentes", 
         "otros", "gastos", "efectivo", "debito", "transferencia", "transferencia2", "total_neto"
     ]
     
-    # Filtrarnos y ordenamos el DataFrame con los nombres finales
     df_excel = df_filtrado[columnas_reporte].copy()
     df_excel = df_excel.rename(columns={
         "id": "ID",
         "fecha_operacion_legible": "Fecha / Hora",
+        "operador": "Operador / Cajero",
         "detalle": "Detalle / Cliente",
         "aranceles": "Aranceles ($)",
         "sellados": "Sellados ($)",
@@ -34,22 +35,21 @@ def generar_excel_contable(df_filtrado):
         "total_neto": "Total Neto ($)"
     })
 
-    # Escritura del archivo mediante pandas y openpyxl en segundo plano
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_excel.to_excel(writer, index=False, sheet_name="Auditoria de Caja")
         
-        # Accedemos a la hoja para autoajustar los anchos de columna de forma prolija
         workbook = writer.book
         worksheet = writer.sheets["Auditoria de Caja"]
-        for col in worksheet.columns:
-            max_len = max(len(str(cell.value or '')) for col_cell in col for cell in [col_cell])
-            col_letter = col[0].column_letter
+        
+        # CORREGIDO: Recorremos por índice numérico de columna para blindar el código ante versiones de openpyxl
+        for col_idx, col in enumerate(worksheet.columns, start=1):
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col_idx)
             worksheet.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
     return output.getvalue()
-
 def renderizar_modulo_exportacion(todos_los_movimientos):
-    """Interfaz gráfica de auditoría contable con filtros cruzados"""
+    """Interfaz gráfica de auditoría contable con filtros cruzados y operador visible"""
     st.header("📥 Centro de Exportación de Informes y Auditoría")
     st.markdown("---")
     
@@ -57,7 +57,7 @@ def renderizar_modulo_exportacion(todos_los_movimientos):
         st.info("No hay datos históricos registrados en el sistema para auditar.")
         return
 
-    # 1. Preparación del DataFrame base con fechas legibles de control
+    # Preparación del DataFrame base con fechas legibles de control
     df_base = pd.DataFrame(todos_los_movimientos)
     
     def extraer_componentes_fecha(x):
@@ -66,20 +66,21 @@ def renderizar_modulo_exportacion(todos_los_movimientos):
             return dt.strftime("%d/%m/%Y %H:%M"), dt.strftime("%Y-%m-%d"), str(dt.month), str(dt.year)
         return "", "", "", ""
 
-    # Mapeamos las columnas temporales para los selectores de Streamlit
     fechas_info = df_base["fecha_operacion"].apply(extraer_componentes_fecha)
     df_base["fecha_operacion_legible"] = [f[0] for f in fechas_info]
     df_base["filtro_dia"] = [f[1] for f in fechas_info]
     df_base["filtro_mes"] = [f[2] for f in fechas_info]
     df_base["filtro_anio"] = [f[3] for f in fechas_info]
 
-    # Rellenamos nulos numéricos obligatorios
+    # Rellenamos nulos numéricos obligatorios y de texto
     columnas_num = ["aranceles", "sellados", "patentes", "otros", "gastos", "efectivo", "debito", "transferencia", "transferencia2", "total_neto"]
     for col in columnas_num:
         df_base[col] = pd.to_numeric(df_base[col]).fillna(0.0)
+    
     df_base["detalle"] = df_base["detalle"].fillna("").astype(str).replace("None", "")
+    df_base["operador"] = df_base["operador"].fillna("").astype(str).replace("None", "")
 
-    # 2. Barra de Filtros en 3 Columnas independientes
+    # Barra de Filtros en 3 Columnas independientes
     st.markdown("#### 🔍 1. Seleccione el rango contable a exportar")
     col1, col2, col3 = st.columns(3)
     
@@ -116,7 +117,7 @@ def renderizar_modulo_exportacion(todos_los_movimientos):
             anio_sel = st.selectbox("Seleccione el año:", options=anios_disponibles, index=0)
             df_filtrado = df_filtrado[df_filtrado["filtro_anio"] == anio_sel]
 
-    # 3. Métricas de Control y Vista Previa
+    # Resumen del Período Seleccionado
     st.markdown("---")
     st.markdown("#### 📊 2. Resumen del Período Seleccionado")
     
@@ -130,20 +131,15 @@ def renderizar_modulo_exportacion(todos_los_movimientos):
         c3.metric("Total Aranceles", f"${df_filtrado['aranceles'].sum():,.2f}")
         c4.metric("Efectivo Ingresado", f"${df_filtrado['efectivo'].sum():,.2f}")
 
-        # Grilla plana de lectura rápida pre-descarga
-        columnas_vista = ["id", "fecha_operacion_legible", "detalle", "total_neto", "efectivo", "debito", "transferencia", "transferencia2"]
+        columnas_vista = ["id", "fecha_operacion_legible", "operador", "detalle", "total_neto", "efectivo", "debito", "transferencia", "transferencia2"]
         df_vista = df_filtrado[columnas_vista].rename(columns={
-            "id": "ID", "fecha_operacion_legible": "Fecha / Hora", "detalle": "Detalle", 
-            "total_neto": "Total Neto", "efectivo": "Efectivo", "debito": "Débito"
+            "id": "ID", "fecha_operacion_legible": "Fecha / Hora", "operador": "Operador",
+            "detalle": "Detalle", "total_neto": "Total Neto", "efectivo": "Efectivo", "debito": "Débito"
         })
         st.dataframe(df_vista, use_container_width=True, hide_index=True)
 
-        # 4. Generación y Botón de Descarga Nictitante
         st.markdown("#### 💾 3. Emitir Planilla Oficial")
-        
-        # Ejecutamos el compilador binario del excel
         datos_excel = generar_excel_contable(df_filtrado)
-        
         nombre_archivo = f"auditoria_caja_{tipo_filtro.replace(' ', '_').lower()}.xlsx"
         
         st.download_button(
