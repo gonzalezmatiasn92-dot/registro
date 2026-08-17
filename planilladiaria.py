@@ -1,61 +1,97 @@
 import streamlit as st
 import pandas as pd
+import re
 from logica import (
     calcular_totales, 
     calcular_medios_pago, 
     guardar_movimiento, 
     eliminar_movimiento, 
-    obtener_fecha_argentina
+    obtener_fecha_argentina,
+    parsear_fecha_supabase
 )
 
+def evaluar_celda_excel(valor_texto):
+    """Simula una celda de Excel resolviendo operaciones si inician con '='"""
+    if not valor_texto:
+        return 0.0
+    texto_limpio = str(valor_texto).strip().replace(" ", "")
+    if not texto_limpio:
+        return 0.0
+    if texto_limpio.startswith("="):
+        formula = texto_limpio[1:]
+        if not re.match(r"^[0-9.+\-*/()]+$", formula):
+            return 0.0
+        try:
+            return float(eval(formula))
+        except Exception:
+            return 0.0
+    else:
+        try:
+            return float(texto_limpio.replace(",", "."))
+        except ValueError:
+            return 0.0
+
 def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimientos_hoy):
-    """Dibuja la barra lateral con nombres visuales y sumas diarias"""
+    """Sidebar lateral de estadísticas y acumulados"""
     with st.sidebar:
         st.header("📊 Panel de Control")
         st.markdown("---")
-        
         st.markdown("### 📈 Acumulados")
         st.metric(label="ARBA quincena", value=f"${arba_quincena:,.2f}")
         st.metric(label="Aranceles mensual", value=f"${aranceles_mensual:,.2f}")
         st.metric(label="💵 Efectivo Acumulado Caja", value=f"${efectivo_caja:,.2f}")
-        
         st.markdown("---")
-        
         st.markdown("### 📋 Resumen del Día")
         tot_aran = sum(float(m.get("aranceles") or 0) for m in movimientos_hoy)
         tot_sell = sum(float(m.get("sellados") or 0) for m in movimientos_hoy)
         tot_pate = sum(float(m.get("patentes") or 0) for m in movimientos_hoy)
         tot_gasto = sum(float(m.get("gastos") or 0) for m in movimientos_hoy)
         tot_neto = sum(float(m.get("total_neto") or 0) for m in movimientos_hoy)
-        
         st.write(f"• Aranceles: ${tot_aran:,.2f}")
         st.write(f"• Sellados: ${tot_sell:,.2f}")
         st.write(f"• Patentes: ${tot_pate:,.2f}")
         st.write(f"• Gastos: ${tot_gasto:,.2f}")
         st.markdown("**Neto Diario Total:**")
         st.subheader(f"${tot_neto:,.2f}")
-
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga limpia sin ceros por defecto"""
+    """Formulario interactivo con llaves dinámicas basadas en versión para blanqueo inmediato"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     st.subheader(f"Planilla Diaria - Fecha: {fecha_hoy}")
     
+    # Inicializamos el contador de versión para refrescar los componentes de forma legal
+    if "form_version" not in st.session_state:
+        st.session_state.form_version = 0
+        
+    v = st.session_state.form_version
+
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("#### 1. Conceptos del Cobro")
-        aranceles = st.number_input("Aranceles ($)", min_value=0.0, step=100.0, value=None, key="f_aran")
-        sellados = st.number_input("Sellados ($)", min_value=0.0, step=100.0, value=None, key="f_sell")
-        patentes = st.number_input("Patentes ($)", min_value=0.0, step=100.0, value=None, key="f_pat")
-        otros = st.number_input("Otros ($)", min_value=0.0, step=100.0, value=None, key="f_otr")
-        gastos = st.number_input("Gastos / Egresos de Caja ($)", min_value=0.0, step=100.0, value=None, key="f_gast")
+        # Al sumar '_v' a la key, forzamos un blanqueo limpio al incrementar el contador
+        t_aranceles = st.text_input("Aranceles ($)", key=f"f_aran_{v}")
+        t_sellados = st.text_input("Sellados ($)", key=f"f_sell_{v}")
+        t_patentes = st.text_input("Patentes ($)", key=f"f_pat_{v}")
+        t_otros = st.text_input("Otros ($)", key=f"f_otr_{v}")
+        t_gastos = st.text_input("Gastos / Egresos de Caja ($)", key=f"f_gast_{v}")
+        
+        aranceles = evaluar_celda_excel(t_aranceles)
+        sellados = evaluar_celda_excel(t_sellados)
+        patentes = evaluar_celda_excel(t_patentes)
+        otros = evaluar_celda_excel(t_otros)
+        gastos = evaluar_celda_excel(t_gastos)
         
     with col2:
         st.markdown("#### 2. Medios de Pago")
-        efectivo = st.number_input("💵 EFECTIVO", min_value=0.0, step=100.0, value=None, key="p_efe")
-        debito = st.number_input("💳 DÉBITO", min_value=0.0, step=100.0, value=None, key="p_deb")
-        transf1 = st.number_input("📲 TRANSFERENCIA 1", min_value=0.0, step=100.0, value=None, key="p_tr1")
-        transf2 = st.number_input("📲 TRANSFERENCIA 2", min_value=0.0, step=100.0, value=None, key="p_tr2")
+        t_efectivo = st.text_input("💵 EFECTIVO", key=f"p_efe_{v}")
+        t_debito = st.text_input("💳 DÉBITO", key=f"p_deb_{v}")
+        t_transf1 = st.text_input("📲 TRANSFERENCIA 1", key=f"p_tr1_{v}")
+        t_transf2 = st.text_input("📲 TRANSFERENCIA 2", key=f"p_tr2_{v}")
+        
+        efectivo = evaluar_celda_excel(t_efectivo)
+        debito = evaluar_celda_excel(t_debito)
+        transf1 = evaluar_celda_excel(t_transf1)
+        transf2 = evaluar_celda_excel(t_transf2)
         
     total_cobrar = calcular_totales(aranceles, sellados, patentes, otros, gastos)
     total_ingresado = calcular_medios_pago(efectivo, debito, transf1, transf2)
@@ -73,52 +109,60 @@ def renderizar_formulario(supabase_client):
         else:
             st.info(f"💡 Vuelto / Excedente: ${abs(diferencia):,.2f}")
             
-        detalle = st.text_input("Observaciones / Nombre del Cliente (Opcional)", key="f_det")
+        detalle = st.text_input("Observaciones / Nombre del Cliente (Opcional)", key=f"f_det_{v}")
         boton_guardar = st.button("💾 Registrar Operación Completa", use_container_width=True)
         
         if boton_guardar:
-            if diferencia != 0:
-                st.error("Los conceptos y los medios de pago deben coincidir perfectamente para poder guardar.")
+            datos = {
+                "detalle": detalle.strip() if detalle else "",
+                "aranceles": aranceles,
+                "sellados": sellados,
+                "patentes": patentes,
+                "otros": otros,
+                "gastos": gastos,
+                "efectivo": efectivo,
+                "debito": debito,
+                "transferencia": transf1,
+                "transferencia2": transf2,
+                "total_neto": total_cobrar
+            }
+            exito, msj = guardar_movimiento(supabase_client, datos)
+            if exito:
+                # SOLUCIÓN DEFINITIVA: Incrementamos la versión. 
+                # Esto obliga a Streamlit a redibujar los campos vacíos de forma nativa.
+                st.session_state.form_version += 1
+                st.success(msj)
+                st.rerun()
             else:
-                detalle_final = detalle.strip() if detalle else ""
-                datos = {
-                    "detalle": detalle_final,
-                    "aranceles": aranceles or 0.0,
-                    "sellados": sellados or 0.0,
-                    "patentes": patentes or 0.0,
-                    "otros": otros or 0.0,
-                    "gastos": gastos or 0.0,
-                    "efectivo": efectivo or 0.0,
-                    "debito": debito or 0.0,
-                    "transferencia": transf1 or 0.0,
-                    "transferencia2": transf2 or 0.0,
-                    "total_neto": total_cobrar
-                }
-                exito, msj = guardar_movimiento(supabase_client, datos)
-                if exito:
-                    st.success(msj)
-                    st.rerun()
-                else:
-                    st.error(msj)
+                st.error(msj)
 
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
     """Muestra exclusivamente las transacciones sincronizadas pertenecientes al día actual"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
-    
     if movimientos_hoy:
         df = pd.DataFrame(movimientos_hoy)
+        
+        if "fecha_operacion" in df.columns:
+            df["fecha_operacion_legible"] = df["fecha_operacion"].apply(
+                lambda x: parsear_fecha_supabase(x).strftime("%d/%m/%Y %H:%M") if parsear_fecha_supabase(x) else ""
+            )
+        else:
+            df["fecha_operacion_legible"] = ""
+
         columnas_ordenadas = [
-            "id", "detalle", "aranceles", "sellados", "patentes", 
-            "otros", "gastos", "efectivo", "debito", 
-            "transferencia", "transferencia2", "total_neto"
+            "id", "fecha_operacion_legible", "detalle", "aranceles", "sellados", "patentes", 
+            "otros", "gastos", "efectivo", "debito", "transferencia", "transferencia2", "total_neto"
         ]
         for col in columnas_ordenadas:
             if col not in df.columns:
                 df[col] = 0.0
                 
         df = df[columnas_ordenadas]
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        df = df.fillna("").astype(str).replace("None", "")
+        
+        df_visual = df.rename(columns={"fecha_operacion_legible": "Fecha / Hora"})
+        st.dataframe(df_visual, use_container_width=True, hide_index=True)
         
         st.markdown("##### 🗑️ Corrección de Registros")
         col_id, col_btn = st.columns(2)
@@ -135,7 +179,5 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
                         st.rerun()
                     else:
                         st.error(msj)
-                else:
-                    st.warning("Seleccione un ID válido.")
     else:
         st.info("No hay movimientos cargados en el día de la fecha.")
