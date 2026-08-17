@@ -9,6 +9,7 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
     tot_aran_hoy = sum(float(m.get("aranceles") or 0) for m in movimientos_hoy)
     tot_sell_hoy = sum(float(m.get("sellados") or 0) for m in movimientos_hoy)
     tot_pate_hoy = sum(float(m.get("patentes") or 0) for m in movimientos_hoy)
+    tot_debi_hoy = sum(float(m.get("debito") or 0) for m in movimientos_hoy)
     
     with col1:
         st.markdown("#### 📑 1. Validar Totales Diarios")
@@ -32,6 +33,15 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
                 st.success(f"✅ Coincide (${tot_pate_hoy:,.2f})")
             else:
                 st.error(f"❌ Diferencia: ${round(v_pate - tot_pate_hoy, 2):,.2f}")
+
+        st.markdown("---")
+        st.markdown("#### 💳 Validación de Posnet")
+        v_debi = st.number_input("Monto total según ticket de cierre de Posnet:", min_value=0.0, value=None, key="v_debi")
+        if v_debi is not None:
+            if round(v_debi, 2) == round(tot_debi_hoy, 2):
+                st.success(f"✅ POSNET CUADRADO (${tot_debi_hoy:,.2f})")
+            else:
+                st.error(f"❌ Diferencia Posnet: ${round(v_debi - tot_debi_hoy, 2):,.2f} (Sistema: ${tot_debi_hoy:,.2f})")
 
     with col2:
         st.markdown("#### 💵 2. Arqueo de Billetes Físico")
