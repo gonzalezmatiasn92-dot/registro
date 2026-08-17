@@ -2,3 +2,4 @@ supabase
 streamlit
 pandas
 pytz
+openpyxl
