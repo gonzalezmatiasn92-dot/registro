@@ -74,11 +74,10 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.markdown("**Neto Diario Total:**")
         st.subheader(f"${tot_neto:,.2f}")
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con llaves dinámicas basadas en versión"""
+    """Formulario interactivo de carga diaria con control de versión estricto"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     st.subheader(f"Planilla Diaria - Fecha: {fecha_hoy}")
     
-    # Inyectamos los marcos de color en la cabecera de forma nativa
     inyectar_estilos_bordes_inputs()
     
     if "form_version" not in st.session_state:
@@ -133,13 +132,18 @@ def renderizar_formulario(supabase_client):
         boton_guardar = st.button("💾 Registrar Operación Completa", use_container_width=True)
         
         if boton_guardar:
-            # CORREGIDO: Se incluyó 'operador' en el diccionario de datos enviado a Supabase
+            # EN PROFUNDIDAD: Extraemos de forma explícita la variable de sesión
+            operador_activo = st.session_state.get("usuario_activo", "").strip()
+            if not operador_activo:
+                operador_activo = "Sistema"
+
             datos = {
                 "detalle": detalle.strip() if detalle else "",
                 "aranceles": aranceles, "sellados": sellados, "patentes": patentes, "otros": otros, "gastos": gastos,
                 "efectivo": efectivo, "debito": debito, "transferencia": transf1, "transferencia2": transf2,
                 "total_neto": total_cobrar,
-                "operador": st.session_state.get("usuario_activo", "Sistema")
+                # ARREGLADO: Forzamos el mapeo exacto a la columna de Supabase
+                "operador": operador_activo
             }
             exito, msj = guardar_movimiento(supabase_client, datos)
             if exito:
@@ -163,7 +167,10 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         else:
             df["fecha_operacion_legible"] = ""
 
-        # CORREGIDO: Añadimos 'operador' a la estructura ordenada de la grilla diaria
+        # Aseguramos que la columna 'operador' exista en el DataFrame antes de ordenarlo
+        if "operador" not in df.columns:
+            df["operador"] = "Sistema"
+
         columnas_ordenadas = [
             "id", "fecha_operacion_legible", "operador", "detalle", "aranceles", "sellados", "patentes", 
             "otros", "gastos", "efectivo", "debito", "transferencia", "transferencia2", "total_neto"
@@ -174,9 +181,10 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
                 
         df = df[columnas_ordenadas]
         
+        # Limpieza estricta de vacíos y palabras 'None'
         df_limpio = df.fillna(0.0)
         for col in ["id", "fecha_operacion_legible", "operador", "detalle"]:
-            df_limpio[col] = df[col].fillna("").astype(str).replace("None", "")
+            df_limpio[col] = df[col].fillna("").astype(str).replace("None", "").replace("nan", "")
 
         df_estilizado = df_limpio.style.apply(aplicar_colores_pasteles, axis=1)
         
