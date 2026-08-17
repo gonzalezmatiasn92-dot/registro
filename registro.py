@@ -3,6 +3,8 @@ from conexion import obtener_cliente
 from logica import procesar_metricas
 from planilladiaria import renderizar_sidebar, renderizar_formulario, renderizar_tabla_movimientos
 from cierre import renderizar_cierre_caja
+# AGREGADO: Importamos el nuevo centro contable
+from informes import renderizar_modulo_exportacion
 
 st.set_page_config(
     page_title="Sistema Integral de Caja",
@@ -29,7 +31,12 @@ def main():
     
     renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimientos_hoy)
     
-    pestana_planilla, pestana_cierre = st.tabs(["📝 Planilla Diaria", "🔒 Cierre de Caja / Arqueo"])
+    # CORREGIDO: Agregamos la tercera pestaña de Exportación / Auditoría
+    pestana_planilla, pestana_cierre, pestana_informes = st.tabs([
+        "📝 Planilla Diaria", 
+        "🔒 Cierre de Caja / Arqueo",
+        "📥 Exportar Informes"
+    ])
     
     with pestana_planilla:
         renderizar_formulario(supabase_client)
@@ -37,6 +44,10 @@ def main():
         
     with pestana_cierre:
         renderizar_cierre_caja(supabase_client, efectivo_caja, movimientos_hoy)
+        
+    with pestana_informes:
+        # CORREGIDO: Enlazamos el set completo de datos históricos al módulo de descarga
+        renderizar_modulo_exportacion(todos_los_movimientos)
 
 if __name__ == "__main__":
     main()
