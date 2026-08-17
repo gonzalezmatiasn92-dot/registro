@@ -1,85 +1,98 @@
-import re
-from datetime import datetime, timedelta
+import streamlit as st
+from datetime import datetime
+import pytz
+from supabase import Client
 
-def formato_moneda(valor):
-    """Da formato de dinero local argentino ($ 1.250.000,00)"""
-    return f"$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+def obtener_fecha_argentina():
+    """Retorna la fecha y hora actual en la zona horaria de Argentina"""
+    tz = pytz.timezone('America/Buenos_Aires')
+    return datetime.now(tz)
 
-def limpiar_monto(texto):
-    """Procesador de números y fórmulas avanzadas con soporte de '=' e ingresos negativos"""
-    if not texto:
-        return 0.0
-    texto_str = str(texto).strip()
-    es_negativo = False
-    
-    if texto_str.startswith("-"):
-        es_negativo = True
-        texto_str = texto_str[1:]
-    elif texto_str.startswith("=-"):
-        es_negativo = True
-        texto_str = "=" + texto_str[2:]
-        
-    if texto_str.startswith("="):
-        try:
-            formula = texto_str[1:].replace(".", "").replace(",", ".")
-            formula_segura = re.sub(r'[^0-9+\-*/().]', '', formula)
-            res = float(eval(formula_segura))
-            return -res if es_negativo else res
-        except:
-            return 0.0
+def parsear_fecha_supabase(fecha_str):
+    """Convierte el timestamp con zona horaria de Supabase al objeto datetime de Argentina"""
+    if not fecha_str:
+        return None
     try:
-        res = float(texto_str.replace(".", "").replace(",", "."))
-        return -res if es_negativo else res
-    except:
-        return 0.0
+        clean_str = fecha_str.replace('Z', '+00:00')
+        dt_utc = datetime.fromisoformat(clean_str)
+        tz_arg = pytz.timezone('America/Buenos_Aires')
+        return dt_utc.astimezone(tz_arg)
+    except Exception:
+        return None
 
-def calcular_balances_historicos(movimientos_nube, fecha_actual):
-    """Cerebro matemático: Procesa el acumulado infinito y los rangos de la interfaz"""
-    tot_efectivo_acumulado = 0.0
-    saldo_acara = 0.0
-    saldo_carcos = 0.0
-    saldo_gastos_generales = 0.0
-    acumulado_quincena_obligaciones = 0.0
-    acumulado_aranceles_mes = 0.0
+def calcular_totales(aranceles, sellados, patentes, otros, gastos):
+    """Calcula el total a cobrar neto de la operación"""
+    return float((aranceles or 0) + (sellados or 0) + (patentes or 0) + (otros or 0) - (gastos or 0))
 
-    # Lógica de quincenas y meses
-    hoy = datetime.now()
-    if hoy.day <= 15:
-        inicio_q, fin_q = datetime(hoy.year, hoy.month, 1), datetime(hoy.year, hoy.month, 15)
-    else:
-        inicio_q = datetime(hoy.year, hoy.month, 16)
-        sig_mes = hoy.month % 12 + 1
-        sig_anio = hoy.year if sig_mes > 1 else hoy.year + 1
-        fin_q = datetime(sig_anio, sig_mes, 1) - timedelta(days=1)
+def calcular_medios_pago(efectivo, debito, transf1, transf2):
+    """Suma los medios de ingreso digital y físico"""
+    return float((efectivo or 0) + (debito or 0) + (transf1 or 0) + (transf2 or 0))
+
+def guardar_movimiento(supabase_client: Client, datos: dict):
+    """Inserta el registro en la base de datos"""
+    try:
+        supabase_client.table("movimientos").insert(datos).execute()
+        return True, "Operación asentada exitosamente."
+    except Exception as e:
+        return False, f"Error de red al guardar: {e}"
+
+def eliminar_movimiento(supabase_client: Client, id_movimiento: int):
+    """Elimina permanentemente un registro de la base de datos por su ID"""
+    try:
+        supabase_client.table("movimientos").delete().eq("id", id_movimiento).execute()
+        return True, f"Registro ID {id_movimiento} eliminado."
+    except Exception as e:
+        return False, f"Error al eliminar: {e}"
+
+def procesar_metricas(todos_los_movimientos):
+    """Filtra y procesa los acumulados históricos y del día bajo hora argentina"""
+    ahora = obtener_fecha_argentina()
+    hoy_str = ahora.strftime("%Y-%m-%d")
+    mes_actual = ahora.month
+    anio_actual = ahora.year
+    dia_actual = ahora.day
     
-    inicio_mes = datetime(hoy.year, hoy.month, 1)
+    es_primera_quincena = dia_actual <= 15
 
-    for m in movimientos_nube:
-        det = str(m.get("detalle", ""))
-        efec = float(m.get("efectivo", 0.0))
+    arba_quincena = 0.0
+    aranceles_mensual = 0.0
+    efectivo_acumulado_caja = 0.0
+    movimientos_hoy = []
+
+    for m in todos_los_movimientos:
+        dt_mov = parsear_fecha_supabase(m.get("created_at")) or ahora
+        mov_fecha_str = dt_mov.strftime("%Y-%m-%d")
         
-        tot_efectivo_acumulado += efec
-        
-        if "Fondo ACARA" in det:
-            saldo_acara += efec
-        elif "Fondo Carcos" in det:
-            saldo_carcos += efec
-        elif "Gastos Generales" in det:
-            saldo_gastos_generales += efec
+        sellados = float(m.get("sellados") or 0)
+        patentes = float(m.get("patentes") or 0)
+        aranceles = float(m.get("aranceles") or 0)
+        gastos = float(m.get("gastos") or 0)
+        efectivo = float(m.get("efectivo") or 0)
 
-        try:
-            if inicio_q <= datetime.strptime(fecha_actual, "%d/%m/%Y") <= fin_q:
-                acumulado_quincena_obligaciones += float(m.get("sellados", 0.0)) + float(m.get("patentes", 0.0))
-            if inicio_mes <= datetime.strptime(fecha_actual, "%d/%m/%Y"):
-                acumulado_aranceles_mes += float(m.get("aranceles", 0.0))
-        except:
-            pass
+        if dt_mov.month == mes_actual and dt_mov.year == anio_actual:
+            aranceles_mensual += aranceles
 
-    return {
-        "efectivo_acumulado": tot_efectivo_acumulado,
-        "acara": saldo_acara,
-        "carcos": saldo_carcos,
-        "gastos_generales": saldo_gastos_generales,
-        "quincena_obligaciones": acumulado_quincena_obligaciones,
-        "aranceles_mes": acumulado_aranceles_mes
-    }
+        if dt_mov.month == mes_actual and dt_mov.year == anio_actual:
+            if es_primera_quincena and dt_mov.day <= 15:
+                arba_quincena += (sellados + patentes)
+            elif not es_primera_quincena and dt_mov.day > 15:
+                arba_quincena += (sellados + patentes)
+
+        # Restamos los gastos/retiros del flujo total acumulado de efectivo
+        efectivo_acumulado_caja += (efectivo - gastos)
+
+        if mov_fecha_str == hoy_str:
+            movimientos_hoy.append(m)
+
+    return arba_quincena, aranceles_mensual, efectivo_acumulado_caja, movimientos_hoy
+
+def calcular_arqueo_fisico(b20k, b10k, b2k, b1k, b500, b200, b100):
+    """Multiplica la cantidad de unidades por su denominación monetaria real"""
+    total = ((b20k or 0) * 20000 + 
+             (b10k or 0) * 10000 + 
+             (b2k or 0) * 2000 + 
+             (b1k or 0) * 1000 + 
+             (b500 or 0) * 500 + 
+             (b200 or 0) * 200 + 
+             (b100 or 0) * 100)
+    return float(total)
