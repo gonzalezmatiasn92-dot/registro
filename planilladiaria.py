@@ -9,6 +9,7 @@ from logica import (
     obtener_fecha_argentina,
     parsear_fecha_supabase
 )
+from colores import aplicar_colores_pasteles
 
 def evaluar_celda_excel(valor_texto):
     """Simula una celda de Excel resolviendo operaciones si inician con '='"""
@@ -30,6 +31,28 @@ def evaluar_celda_excel(valor_texto):
             return float(texto_limpio.replace(",", "."))
         except ValueError:
             return 0.0
+
+def inyectar_estilos_bordes_inputs():
+    """
+    Inyecta estilos CSS en la página para colorear los bordes de cada casillero 
+    de entrada con los mismos tonos de la paleta de colores.
+    """
+    st.html("""
+        <style>
+        /* Conceptos del Cobro */
+        div[data-testid="stTextInput"]:has(input[aria-label="Aranceles ($)"]) input { border: 2px solid rgba(180, 180, 180, 0.9) !important; }
+        div[data-testid="stTextInput"]:has(input[aria-label="Sellados ($)"]) input { border: 2px solid rgba(10, 40, 90, 0.8) !important; }
+        div[data-testid="stTextInput"]:has(input[aria-label="Patentes ($)"]) input { border: 2px solid rgba(25, 75, 140, 0.7) !important; }
+        div[data-testid="stTextInput"]:has(input[aria-label="Otros ($)"]) input { border: 2px solid rgba(0, 191, 255, 0.8) !important; }
+        div[data-testid="stTextInput"]:has(input[aria-label="Gastos / Egresos de Caja ($)"]) input { border: 2px solid rgba(255, 100, 100, 0.8) !important; }
+        
+        /* Medios de Pago */
+        div[data-testid="stTextInput"]:has(input[aria-label="💵 EFECTIVO"]) input { border: 2px solid rgba(100, 220, 100, 0.9) !important; }
+        div[data-testid="stTextInput"]:has(input[aria-label="💳 DÉBITO"]) input { border: 2px solid rgba(255, 230, 100, 1) !important; }
+        div[data-testid="stTextInput"]:has(input[aria-label="📲 TRANSFERENCIA 1"]) input { border: 2px solid rgba(255, 140, 0, 0.8) !important; }
+        div[data-testid="stTextInput"]:has(input[aria-label="📲 TRANSFERENCIA 2"]) input { border: 2px solid rgba(255, 140, 0, 0.8) !important; }
+        </style>
+    """)
 
 def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimientos_hoy):
     """Sidebar lateral de estadísticas y acumulados"""
@@ -54,21 +77,21 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.markdown("**Neto Diario Total:**")
         st.subheader(f"${tot_neto:,.2f}")
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo con llaves dinámicas basadas en versión para blanqueo inmediato"""
+    """Formulario interactivo de carga diaria con bordes de color espejados de la paleta"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     st.subheader(f"Planilla Diaria - Fecha: {fecha_hoy}")
     
-    # Inicializamos el contador de versión para refrescar los componentes de forma legal
+    # Inyectamos los marcos de color de forma nativa en la cabecera
+    inyectar_estilos_bordes_inputs()
+    
     if "form_version" not in st.session_state:
         st.session_state.form_version = 0
-        
     v = st.session_state.form_version
 
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("#### 1. Conceptos del Cobro")
-        # Al sumar '_v' a la key, forzamos un blanqueo limpio al incrementar el contador
         t_aranceles = st.text_input("Aranceles ($)", key=f"f_aran_{v}")
         t_sellados = st.text_input("Sellados ($)", key=f"f_sell_{v}")
         t_patentes = st.text_input("Patentes ($)", key=f"f_pat_{v}")
@@ -98,7 +121,7 @@ def renderizar_formulario(supabase_client):
     diferencia = round(total_cobrar - total_ingresado, 2)
     
     with col3:
-        st.markdown("#### 3. Validación")
+        st.markdown("#### 3. Validation")
         st.metric(label="Total a Cobrar", value=f"${total_cobrar:,.2f}")
         st.metric(label="Total Ingresado", value=f"${total_ingresado:,.2f}")
         
@@ -115,21 +138,12 @@ def renderizar_formulario(supabase_client):
         if boton_guardar:
             datos = {
                 "detalle": detalle.strip() if detalle else "",
-                "aranceles": aranceles,
-                "sellados": sellados,
-                "patentes": patentes,
-                "otros": otros,
-                "gastos": gastos,
-                "efectivo": efectivo,
-                "debito": debito,
-                "transferencia": transf1,
-                "transferencia2": transf2,
+                "aranceles": aranceles, "sellados": sellados, "patentes": patentes, "otros": otros, "gastos": gastos,
+                "efectivo": efectivo, "debito": debito, "transferencia": transf1, "transferencia2": transf2,
                 "total_neto": total_cobrar
             }
             exito, msj = guardar_movimiento(supabase_client, datos)
             if exito:
-                # SOLUCIÓN DEFINITIVA: Incrementamos la versión. 
-                # Esto obliga a Streamlit a redibujar los campos vacíos de forma nativa.
                 st.session_state.form_version += 1
                 st.success(msj)
                 st.rerun()
@@ -137,7 +151,7 @@ def renderizar_formulario(supabase_client):
                 st.error(msj)
 
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra exclusivamente las transacciones sincronizadas pertenecientes al día actual"""
+    """Muestra transacciones en tiempo real vinculadas a los estilos externos"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     if movimientos_hoy:
@@ -159,10 +173,21 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
                 df[col] = 0.0
                 
         df = df[columnas_ordenadas]
-        df = df.fillna("").astype(str).replace("None", "")
         
-        df_visual = df.rename(columns={"fecha_operacion_legible": "Fecha / Hora"})
-        st.dataframe(df_visual, use_container_width=True, hide_index=True)
+        df_limpio = df.fillna(0.0)
+        for col in ["id", "fecha_operacion_legible", "detalle"]:
+            df_limpio[col] = df[col].fillna("").astype(str).replace("None", "")
+
+        df_estilizado = df_limpio.style.apply(aplicar_colores_pasteles, axis=1)
+        
+        df_estilizado = df_estilizado.format({
+            "aranceles": "${:,.2f}", "sellados": "${:,.2f}", "patentes": "${:,.2f}",
+            "otros": "${:,.2f}", "gastos": "${:,.2f}", "efectivo": "${:,.2f}",
+            "debito": "${:,.2f}", "transferencia": "${:,.2f}", "transferencia2": "${:,.2f}",
+            "total_neto": "${:,.2f}"
+        })
+
+        st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
         
         st.markdown("##### 🗑️ Corrección de Registros")
         col_id, col_btn = st.columns(2)
