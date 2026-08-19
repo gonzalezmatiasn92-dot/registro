@@ -50,7 +50,6 @@ def inyectar_estilos_bordes_inputs():
         div[data-testid="stTextInput"]:has(input[aria-label="📲 TRANSFERENCIA 2"]) input { border: 2px solid rgba(255, 140, 0, 0.8) !important; }
         </style>
     """)
-
 def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimientos_hoy):
     """Sidebar lateral de estadísticas y acumulados"""
     with st.sidebar:
@@ -73,11 +72,30 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.write(f"• Gastos: ${tot_gasto:,.2f}")
         st.markdown("**Neto Diario Total:**")
         st.subheader(f"${tot_neto:,.2f}")
+
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con control de versión estricto"""
+    """Formulario interactivo de carga diaria con indicador de fondo de cambio anterior"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
-    st.subheader(f"Planilla Diaria - Fecha: {fecha_hoy}")
     
+    monto_fondo_inicial = 0.0
+    try:
+        apertura_reg = (
+            supabase_client.table("movimientos")
+            .select("efectivo")
+            .ilike("detalle", "%Fondo de Cambio%")
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if apertura_reg.data and len(apertura_reg.data) > 0:
+            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
+    except Exception:
+        pass
+
+    st.subheader(f"Planilla Diaria - Fecha: {fecha_hoy}")
+    st.markdown(f"<span style='color: gray; font-size: 14px;'>💵 Cambio del dia anterior: <b>${monto_fondo_inicial:,.2f}</b></span>", unsafe_allow_html=True)
+    st.write("")
+
     inyectar_estilos_bordes_inputs()
     
     if "form_version" not in st.session_state:
@@ -132,17 +150,19 @@ def renderizar_formulario(supabase_client):
         boton_guardar = st.button("💾 Registrar Operación Completa", use_container_width=True)
         
         if boton_guardar:
-            # EN PROFUNDIDAD: Extraemos de forma explícita la variable de sesión
             operador_activo = st.session_state.get("usuario_activo", "").strip()
             if not operador_activo:
                 operador_activo = "Sistema"
 
+            efectivo_neto_real = efectivo
+            if diferencia < 0 and efectivo > 0:
+                efectivo_neto_real = round(efectivo - abs(diferencia), 2)
+
             datos = {
                 "detalle": detalle.strip() if detalle else "",
                 "aranceles": aranceles, "sellados": sellados, "patentes": patentes, "otros": otros, "gastos": gastos,
-                "efectivo": efectivo, "debito": debito, "transferencia": transf1, "transferencia2": transf2,
+                "efectivo": efectivo_neto_real, "debito": debito, "transferencia": transf1, "transferencia2": transf2,
                 "total_neto": total_cobrar,
-                # ARREGLADO: Forzamos el mapeo exacto a la columna de Supabase
                 "operador": operador_activo
             }
             exito, msj = guardar_movimiento(supabase_client, datos)
@@ -152,9 +172,8 @@ def renderizar_formulario(supabase_client):
                 st.rerun()
             else:
                 st.error(msj)
-
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra transacciones en tiempo real incluyendo la columna de operador activo"""
+    """Muestra transacciones del día mediante st.dataframe clásico vinculada a colores.py"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     if movimientos_hoy:
@@ -167,7 +186,6 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         else:
             df["fecha_operacion_legible"] = ""
 
-        # Aseguramos que la columna 'operador' exista en el DataFrame antes de ordenarlo
         if "operador" not in df.columns:
             df["operador"] = "Sistema"
 
@@ -181,11 +199,11 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
                 
         df = df[columnas_ordenadas]
         
-        # Limpieza estricta de vacíos y palabras 'None'
         df_limpio = df.fillna(0.0)
         for col in ["id", "fecha_operacion_legible", "operador", "detalle"]:
             df_limpio[col] = df[col].fillna("").astype(str).replace("None", "").replace("nan", "")
 
+        # Vinculamos la función importada desde colores.py de forma directa y estable
         df_estilizado = df_limpio.style.apply(aplicar_colores_pasteles, axis=1)
         
         df_estilizado = df_estilizado.format({
