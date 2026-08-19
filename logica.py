@@ -41,7 +41,7 @@ def eliminar_movimiento(supabase_client: Client, id_movimiento: int):
         return False, f"Error al eliminar: {e}"
 
 def procesar_metricas(todos_los_movimientos):
-    """Procesa quincenas, meses y el día basándose en el timestamp nativo de Supabase"""
+    """Procesa quincenas, meses y discrimina de forma estricta el efectivo acumulado total del efectivo de hoy"""
     ahora = obtener_fecha_argentina()
     hoy_str = ahora.strftime("%Y-%m-%d")
     mes_actual = ahora.month
@@ -52,14 +52,15 @@ def procesar_metricas(todos_los_movimientos):
 
     arba_quincena = 0.0
     aranceles_mensual = 0.0
-    efectivo_acumulado_caja = 0.0
+    efectivo_acumulado_total = 0.0
+    efectivo_hoy = 0.0
     movimientos_hoy = []
 
     for m in todos_los_movimientos:
-        # Interpretamos la columna nativa devuelta por Supabase
         dt_mov = parsear_fecha_supabase(m.get("fecha_operacion")) or ahora
         mov_fecha_str = dt_mov.strftime("%Y-%m-%d")
         
+        detalle = str(m.get("detalle") or "")
         sellados = float(m.get("sellados") or 0)
         patentes = float(m.get("patentes") or 0)
         aranceles = float(m.get("aranceles") or 0)
@@ -75,15 +76,23 @@ def procesar_metricas(todos_los_movimientos):
             elif not es_primera_quincena and dt_mov.day > 15:
                 arba_quincena += (sellados + patentes)
 
-        efectivo_acumulado_caja += (efectivo - gastos)
+        # CÓMPUTO DE CUENTAS ESTANCAS PERPETUAS
+        if "Apertura de Caja" not in detalle:
+            efectivo_acumulado_total += (efectivo - gastos)
 
+        # CÓMPUTO ESPECÍFICO DEL DÍA EN CURSO (Para conciliar solo lo de hoy)
         if mov_fecha_str == hoy_str:
             movimientos_hoy.append(m)
+            if "Apertura de Caja" not in detalle:
+                efectivo_hoy += (efectivo - gastos)
 
-    return arba_quincena, aranceles_mensual, efectivo_acumulado_caja, movimientos_hoy
+    # Inyectamos de forma temporal el efectivo neto de hoy en st.session_state para que lo lea el arqueo
+    st.session_state["efectivo_neto_hoy"] = efectivo_hoy
+
+    return arba_quincena, aranceles_mensual, efectivo_acumulado_total, movimientos_hoy
 
 def calcular_arqueo_fisico(b20k, b10k, b2k, b1k, b500, b200, b100):
-    return float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
+    return float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*200 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
 
 def calcular_solo_cambio_chico(b2k, b1k, b500, b200, b100):
     return float((b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
