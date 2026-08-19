@@ -33,6 +33,8 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
     tot_pate_hoy = sum(float(m.get("patentes") or 0) for m in movimientos_hoy)
     tot_debi_hoy = sum(float(m.get("debito") or 0) for m in movimientos_hoy)
     
+    efectivo_esperado_hoy = st.session_state.get("efectivo_neto_hoy", 0.0)
+    
     with col1:
         st.markdown("#### 📑 1. Validar Totales Diarios")
         v_aran = st.number_input("Total Aranceles según planilla manual:", min_value=0.0, value=None, key="v_aran")
@@ -66,7 +68,7 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
                 st.error(f"❌ Diferencia Posnet: ${round(v_debi - tot_debi_hoy, 2):,.2f} (Sistema: ${tot_debi_hoy:,.2f})")
 
         st.markdown("---")
-        st.markdown("#### 🏦 Depositar en Banco (Retiro Físico)")
+        st.markdown("#### 🏦 Depositar en Banco (Retiro Físico del Pozo)")
         t_monto_banco = st.text_input("Monto exacto retirado para enviar al banco ($):", placeholder="Ej: 50000 o =45000+5000", key="monto_banco")
         monto_banco = evaluar_celda_excel(t_monto_banco)
         
@@ -87,14 +89,14 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
                 }
                 exito, msj = guardar_movimiento(supabase_client, datos_retiro)
                 if exito:
-                    st.success(f"💰 Depósito de ${monto_banco:,.2f} registrado por `{usuario_actual}`. El acumulado bajó.")
+                    st.success(f"💰 Depósito de ${monto_banco:,.2f} registrado por `{usuario_actual}`. El pozo pendiente bajó.")
                     st.rerun()
                 else:
                     st.error(msj)
             else:
                 st.warning("Ingrese un monto superior a 0 para registrar el depósito.")
     with col2:
-        st.markdown("#### 💵 2. Arqueo de Billetes Físico")
+        st.markdown("#### 💵 2. Arqueo de Billetes Físico (Solo de Hoy)")
         
         st.markdown("""
             <div style="background-color: rgba(255, 140, 0, 0.08); padding: 6px 12px; border-radius: 6px; border-left: 4px solid rgba(255, 140, 0, 0.7); margin-bottom: 12px;">
@@ -120,60 +122,59 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         b200 = st.number_input("Billetes de $200 (Cantidad):", min_value=0, step=1, value=None, placeholder="", key="b200")
         b100 = st.number_input("Billetes de $100 (Cantidad):", min_value=0, step=1, value=None, placeholder="", key="b100")
         
-    efectivo_real_contado = calcular_arqueo_fisico(b20k, b10k, b2k, b1k, b500, b200, b100)
-    
-    # El fajo que se aparta físicamente hoy para el sobre incluye billetes grandes y el cambio chico extra retirado
+    efectivo_total_contado_hoy = float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
     monto_fajo_banco_hoy = float(((b20k or 0) * 20000) + ((b10k or 0) * 10000) + cambio_chico_dep)
+    
+    # CORREGIDO INTERACTIVO: El Cambio de mañana suma de forma directa lo digitado en las casillas verdes chico
+    cambio_de_manana_dinamico = float((b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
 
     with col3:
         st.markdown("#### 📊 3. Auditoría de Caja Física Actual")
         
-        # LÓGICA CORREGIDA: Cambio de mañana es estrictamente lo que quedó en el cajón chico (Total contado menos lo apartado para el sobre)
-        cambio_de_manana = max(0.0, efectivo_real_contado - monto_fajo_banco_hoy)
+        auditoria_dif = round(efectivo_total_contado_hoy - efectivo_esperado_hoy, 2)
         
-        # CUENTAS SEPARADAS: El pozo permanente para el banco se calcula limpio sobre el acumulado histórico,
-        # descontando el cambio fijo operativo del cajón para que no se mezclen los tantos.
-        efectivo_pendiente_deposito = max(0.0, efectivo_caja_acumulado - cambio_de_manana)
+        # El pozo permanente suma en vivo lo que apartamos hoy con las casillas naranjas
+        efectivo_pendiente_deposito_directo = efectivo_caja_acumulado + monto_fajo_banco_hoy
         
         st.write("")
-        st.metric(label="Efectivo en Caja Total (Esperado Histórico)", value=f"${efectivo_caja_acumulado:,.2f}")
-        st.metric(label="Efectivo Contado en Cajón (Real Físico)", value=f"${efectivo_real_contado:,.2f}")
+        st.metric(label="Efectivo Esperado según Planilla (Solo Hoy)", value=f"${efectivo_esperado_hoy:,.2f}")
+        st.metric(label="Efectivo Contado Real en Cajón (Solo Hoy)", value=f"${efectivo_total_contado_hoy:,.2f}")
         
         st.markdown("---")
         
+        # Ambas tarjetas ahora responden 100% en vivo a cada tecla y renglón por separado
         st.markdown(f"""
             <div style="background-color: rgba(255, 140, 0, 0.12); border-left: 5px solid rgba(255, 140, 0, 0.7); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
                 <span style="color: #444; font-size: 14px; font-weight: bold; display: block;">🏦 Pendiente de deposito</span>
-                <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 4px;">${efectivo_pendiente_deposito:,.2f}</span>
+                <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 4px;">${efectivo_pendiente_deposito_directo:,.2f}</span>
             </div>
             
             <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgba(100, 220, 100, 0.7); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
                 <span style="color: #444; font-size: 14px; font-weight: bold; display: block;">💵 Cambio de mañana</span>
-                <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 4px;">${cambio_de_manana:,.2f}</span>
+                <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 4px;">${cambio_de_manana_dinamico:,.2f}</span>
             </div>
         """, unsafe_allow_html=True)
         
-        auditoria_dif = round(efectivo_real_contado - efectivo_caja_acumulado, 2)
         if auditoria_dif == 0:
-            st.success("✅ AUDITORÍA COMPLETA: Caja cuadrada.")
+            st.success("✅ AUDITORÍA DEL DÍA: Caja cuadrada perfecta.")
         elif auditoria_dif > 0:
-            st.info(f" 🟩 SOBRANTE ACTUAL: ${auditoria_dif:,.2f}")
+            st.info(f" 🟩 SOBRANTE DE HOY: ${auditoria_dif:,.2f}")
         else:
-            st.error(f" 🟥 FALTANTE ACTUAL: ${abs(auditoria_dif):,.2f}")
+            st.error(f" 🟥 FALTANTE DE HOY: ${abs(auditoria_dif):,.2f}")
             
         st.write("")
         if st.button("🔒 Ejecutar Cierre y Traspasar Cambio", type="primary", use_container_width=True):
             usuario_cierre = st.session_state.get("usuario_activo", "Sistema")
             
-            if cambio_de_manana > 0:
+            if cambio_de_manana_dinamico > 0:
                 datos_apertura = {
                     "detalle": "Apertura de Caja: Fondo de Cambio del día anterior",
                     "aranceles": 0.0, "sellados": 0.0, "patentes": 0.0, "otros": 0.0, "gastos": 0.0,
-                    "efectivo": cambio_de_manana, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0, 
-                    "total_neto": float(cambio_de_manana),
+                    "efectivo": cambio_de_manana_dinamico, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0, 
+                    "total_neto": float(cambio_de_manana_dinamico),
                     "operador": usuario_cierre
                 }
                 guardar_movimiento(supabase_client, datos_apertura)
                 
-            st.success("🔒 Caja guardada con éxito. El cambio fue traspasado de manera independiente.")
+            st.success("🔒 Caja de hoy guardada con éxito. El fajo nuevo fue sumado al pozo de la nube.")
             st.rerun()
