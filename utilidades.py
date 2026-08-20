@@ -26,16 +26,6 @@ def renderizar_panel_utilidades():
     st.header("🧰 Panel de Utilidades y Asistente de Gestión")
     st.markdown("---")
     
-    # Inyectamos estilos CSS para que las letras sean más grandes y todo esté bien agrupado
-    st.html("""
-        <style>
-        .st-emotion-cache-16idsys p { font-size: 18px !important; margin: 0 !important; }
-        .form-label-big { font-size: 19px !important; font-weight: bold !important; color: #111111; }
-        .pedido-azul { background-color: rgba(0, 123, 255, 0.15); border-left: 4px solid #007bff; padding: 2px 8px; border-radius: 4px; font-weight: bold; color: #0056b3; font-size: 18px; }
-        .pedido-ok { color: #888888; font-size: 18px; }
-        </style>
-    """)
-    
     # 📝 SECCIÓN 1: Calculadora de Saldos de Trámite
     with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=False):
         st.write("Complete los campos para generar el texto de la rendición.")
@@ -89,7 +79,8 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"🔴 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
+                estado_tramite = f"FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
+                color_texto_final = "#CC3333"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -97,7 +88,8 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = "🟢 TRÁMITE SALDADO"
+                estado_tramite = "TRÁMITE SALDADO"
+                color_texto_final = "#28A745"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(0, 123, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -105,7 +97,8 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"🔵 TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
+                estado_tramite = f"TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
+                color_texto_final = "#007BFF"
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
@@ -126,44 +119,62 @@ def renderizar_panel_utilidades():
         </div>
         """, unsafe_allow_html=True)
 
-    # 📑 SECCIÓN 2: Control de Stock de Formularios (CAJITA COMPACTA SOLICITADA)
+    # 📑 SECCIÓN 2: Control de Stock de Formularios (CAJITA COMPACTA TOTALMENTE ALINEADA)
     with st.expander("📋 2. Control de Stock de Formularios", expanded=True):
-        # Diccionario maestro con los valores ideales solicitados
+        st.write("Ingrese las cantidades en los casilleros de STOCK ACTUAL. El pedido se calcula automáticamente.")
+        st.write("")
+        
         ideales_formularios = {
             "02": 10, "04": 20, "08": 30, "08D": 35, "TP": 90, "57": 5, "59": 5, "HojCONT": 150
         }
         
-        # Encabezado ultra corto de las 4 columnas básicas
-        c_st, c_stock, c_ideal, c_pedido = st.columns(4)
-        c_st.markdown("**📄 ST**")
-        c_stock.markdown("**🔢 STOCK**")
-        c_ideal.markdown("**📋 DEBERÍA**")
-        c_pedido.markdown("**🚨 PEDIDO**")
-        st.markdown("---")
+        # Armamos el diseño en dos columnas grandes para que quede más compacto todavía de forma lateral
+        col_bloque1, col_bloque2 = st.columns(2, gap="large")
         
-        # Renderizado en casilleros pequeños sin desperdicio de espacio
-        for form, ideal_val in ideales_formularios.items():
-            col_st, col_stock, col_ideal, col_pedido = st.columns(4)
+        # Pasamos la lista a la mitad para meter 4 en la izquierda y 4 en la derecha
+        items = list(ideales_formularios.items())
+        mitad = len(items) // 2
+        bloque1 = items[:mitad]
+        bloque2 = items[mitad:]
+        
+        # Función interna para dibujar la cajita simétrica sin desalinear los textos
+        def dibujar_cajita_stock(lista_items):
+            # Encabezado plano de las columnas
+            c1, c2, c3, c4 = st.columns([1, 1.2, 1, 1.2])
+            c1.markdown("<small style='color:gray; font-weight:bold;'>📄 ST</small>", unsafe_allow_html=True)
+            c2.markdown("<small style='color:gray; font-weight:bold;'>🔢 STOCK</small>", unsafe_allow_html=True)
+            c3.markdown("<small style='color:gray; font-weight:bold;'>📋 DEBERÍA</small>", unsafe_allow_html=True)
+            c4.markdown("<small style='color:gray; font-weight:bold;'>🚨 PEDIDO</small>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 4px 0 10px 0;'>", unsafe_allow_html=True)
             
-            # 1. Columna ST: Solo el nombre corto
-            col_st.markdown(f"<span class='form-label-big'>{form}</span>", unsafe_allow_html=True)
+            for form, ideal_val in lista_items:
+                f1, f2, f3, f4 = st.columns([1, 1.2, 1, 1.2])
+                
+                # 1. Columna ST (Letra grande y limpia)
+                f1.markdown(f"<div style='font-size: 19px; font-weight: bold; padding-top: 5px;'>{form}</div>", unsafe_allow_html=True)
+                
+                # 2. Columna STOCK (Casillero de entrada manual pegadito)
+                stock_ingresado = f2.number_input(
+                    label=f"stk_{form}", 
+                    min_value=0, 
+                    step=1, 
+                    value=0, 
+                    label_visibility="collapsed", 
+                    key=f"caja_stk_{form}"
+                )
+                
+                # 3. Columna DEBERÍA (Ideal fijo)
+                f3.markdown(f"<div style='font-size: 17px; padding-top: 5px; color:#555;'>{ideal_val}</div>", unsafe_allow_html=True)
+                
+                # 4. Columna PEDIDO (Colores suaves: Alerta en rojo sutil si falta, gris claro si está OK)
+                falta_unidades = max(0, ideal_val - stock_ingresado)
+                if falta_unidades > 0:
+                    f4.markdown(f"<div style='background-color: #FFF1F0; border: 1px solid #FFA39E; border-radius: 4px; padding: 3px 6px; font-size: 17px; font-weight: bold; color: #CF1322; text-align: center;'>Pedir {falta_unidades}</div>", unsafe_allow_html=True)
+                else:
+                    f4.markdown("<div style='color: #8C8C8C; font-size: 17px; padding-top: 5px; text-align: center;'>0</div>", unsafe_allow_html=True)
+
+        with col_bloque1:
+            dibujar_cajita_stock(bloque1)
             
-            # 2. Columna STOCK: Casillero numérico miniatura agrupado
-            stock_ingresado = col_stock.number_input(
-                label=f"stk_{form}", 
-                min_value=0, 
-                step=1, 
-                value=0, 
-                label_visibility="collapsed", 
-                key=f"mini_stk_{form}"
-            )
-            
-            # 3. Columna DEBERÍA TENER (Ideal fijo)
-            col_ideal.markdown(f"<span style='font-size: 18px;'>{ideal_val} u.</span>", unsafe_allow_html=True)
-            
-            # 4. Columna PEDIDO AUTOMÁTICO: Si falta stock, se pinta la celda de AZUL
-            falta_unidades = max(0, ideal_val - stock_ingresado)
-            if falta_unidades > 0:
-                col_pedido.markdown(f"<div class='pedido-azul'>Pedir {falta_unidades} u.</div>", unsafe_allow_html=True)
-            else:
-                col_pedido.markdown("<div class='pedido-ok'>0</div>", unsafe_allow_html=True)
+        with col_bloque2:
+            dibujar_cajita_stock(bloque2)
