@@ -26,7 +26,6 @@ def renderizar_panel_utilidades():
     st.header("🧰 Panel de Utilidades y Asistente de Gestión")
     st.markdown("---")
     
-    # CORREGIDO: Se cambió 'St.expander' por 'st.expander' con s minúscula como corresponde
     with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
         st.write("Complete los campos para calcular las diferencias de depósitos y confeccionar el e-mail automático.")
         st.write("")
@@ -80,7 +79,7 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
-                color_borde_html = "#FF4D4F"
+                color_texto_final = "#CC3333"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -89,7 +88,7 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = "TRÁMITE SALDADO"
-                color_borde_html = "#52C41A"
+                color_texto_final = "#28A745"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(0, 123, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -98,59 +97,25 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
-                color_borde_html = "#1890FF"
+                color_texto_final = "#007BFF"
 
         st.markdown("---")
-        st.markdown("##### ✉ Rendición Formateada (Simulación Excel)")
-        st.write("Presione el botón azul de abajo. Al pegarlo en Gmail, se insertará como celdas de Excel perfectas:")
+        st.markdown("##### ✉ Texto Confeccionado para Gmail")
+        st.write("Seleccione el texto blanco de abajo arrastrando el mouse para copiarlo:")
         
-        # Confeccionamos la tabla HTML limpia con el formato de celdas que imita a Excel
-        html_copiar = f"""<div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000;">
-<p style="margin-bottom: 15px; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
-<table style="border-collapse: collapse; width: 320px; font-size: 14px; border: 1px solid #D9D9D9;">
-    <tr>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; background-color: #FAFAFA;">Deposito</td>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right; font-weight: bold;">${deposito:,.2f}</td>
-    </tr>
-    <tr>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Arancel</td>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${arancel:,.2f}</td>
-    </tr>
-    <tr>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Sellado de prenda</td>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${prenda:,.2f}</td>
-    </tr>
-    <tr>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Sellado</td>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${sell_alta:,.2f}</td>
-    </tr>
-    <tr>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Alta</td>
-        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${alta:,.2f}</td>
-    </tr>
-</table>
-<br>
-<table style="border-collapse: collapse; width: 440px; font-size: 14px; font-weight: bold; border: 2px solid {color_borde_html};">
-    <tr>
-        <td style="padding: 12px 15px; background-color: #FAFAFA; text-align: center; color: #000000;">{estado_tramite}</td>
-    </tr>
-</table>
-</div>"""
-
-        # Mostramos la vista previa en pantalla de las celdas
-        st.markdown(html_copiar, unsafe_allow_html=True)
-        st.write("")
-        
-        # Inyección segura de JavaScript que copia tanto el formato de celdas (HTML) como texto plano de respaldo
-        if st.button("📋 Copiar Celdas de Excel para Gmail", use_container_width=True, type="primary"):
-            st.html(f"""
-                <script>
-                const htmlType = "text/html";
-                const plainType = "text/plain";
-                const blobHtml = new Blob([`{html_copiar}`], {{ type: htmlType }});
-                const blobPlain = new Blob([`PATENTE: {patente}\\n\\nDeposito: ${deposito}\\nArancel: ${arancel}\\n{estado_tramite}`], {{ type: plainType }});
-                const data = [new ClipboardItem({{ [htmlType]: blobHtml, [plainType]: blobPlain }})];
-                navigator.clipboard.write(data);
-                </script>
-            """)
-            st.success("✅ ¡Celdas copiadas con formato Excel! Ya puedes ir a Gmail y presionar Ctrl+V (Pegar).")
+        # RENDERIZADO VISUAL LIMPIO: Texto enriquecido plano para arrastrar y pintar con el cursor sin meter basura de programacion
+        st.markdown(f"""
+        <div style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.8; color: #000000; max-width: 440px; padding: 15px; border: 1px dashed #CCCCCC; border-radius: 6px; background-color: #FFFFFF;">
+            <p style="margin: 0 0 15px 0; font-weight: bold; font-size: 16px;">PATENTE: {patente if patente else '_______'}</p>
+            
+            <table style="width: 100%; border-collapse: collapse; font-size: 15px;">
+                <tr><td style="padding: 3px 0; width: 180px;">Deposito:</td><td style="font-weight: bold; text-align: left;">${deposito:,.2f}</td></tr>
+                <tr><td style="padding: 3px 0;">Arancel:</td><td style="text-align: left;">${arancel:,.2f}</td></tr>
+                <tr><td style="padding: 3px 0;">Sellado de prenda:</td><td style="text-align: left;">${prenda:,.2f}</td></tr>
+                <tr><td style="padding: 3px 0;">Sellado:</td><td style="text-align: left;">${sell_alta:,.2f}</td></tr>
+                <tr><td style="padding: 3px 0;">Alta:</td><td style="text-align: left;">${alta:,.2f}</td></tr>
+            </table>
+            <br>
+            <p style="margin: 10px 0 0 0; font-weight: bold; font-size: 15px; color: {color_texto_final};">{estado_tramite}</p>
+        </div>
+        """, unsafe_allow_html=True)
