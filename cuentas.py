@@ -5,8 +5,10 @@ from logica import obtener_fecha_argentina
 def verificar_credenciales(supabase_client, usuario, clave):
     try:
         respuesta = supabase_client.table("usuarios").select("*").eq("usuario", usuario.strip()).execute()
-        if respuesta.data:
-            datos_user = respuesta.data
+        if respuesta.data and len(respuesta.data) > 0:
+            # CORREGIDO: Extraemos el primer diccionario de la lista devuelta por Supabase
+            datos_user = respuesta.data[0]
+            
             if datos_user.get("clave") == clave.strip():
                 if datos_user.get("estado") == "Aprobado":
                     return True, "OK", datos_user
@@ -55,7 +57,6 @@ def renderizar_login_screen(supabase_client):
     st.markdown("<h1 style='text-align: center;'>🔐 Acceso al Sistema de Caja</h1>", unsafe_allow_html=True)
     st.write("")
     
-    # CORREGIDO: Se inyectó el número 3 para armar las columnas correctamente y centrar el Login
     col_izq, col_cen, col_der = st.columns(3)
     with col_cen:
         modo = st.radio("Seleccione una opción:", ["Iniciar Sesión", "Solicitar Cuenta Nueva"], horizontal=True)
