@@ -98,21 +98,17 @@ def renderizar_panel_utilidades():
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
-        st.write("Haga clic en el botón de copiar (ícono de las hojas empalmadas arriba a la derecha) para copiar las columnas perfectas:")
+        st.write("Haga clic en el botón de copiar arriba a la derecha del cuadro negro. Al pegarlo en Gmail, las columnas quedarán perfectas:")
         
-        # IMITACIÓN DE EXCEL CON ESPACIADOS FIJOS (Formato alineado como filas y columnas limpias)
+        # ELIMINADAS LAS PALABRAS Y LAS RAYAS: Formato tabulado puro (\t) para encaje milimétrico en Gmail
         cuerpo_email = f"""PATENTE: {patente if patente else '_______'}
 
-Concepto               | Importe
------------------------|------------------
-Deposito               | ${deposito:,.2f}
-Arancel                | ${arancel:,.2f}
-Sellado de prenda      | ${prenda:,.2f}
-Sellado                | ${sell_alta:,.2f}
-Alta                   | ${alta:,.2f}
+Deposito:\t\t${deposito:,.2f}
+Arancel:\t\t${arancel:,.2f}
+Sellado de prenda:\t${prenda:,.2f}
+Sellado:\t\t${sell_alta:,.2f}
+Alta:\t\t${alta:,.2f}
 
---------------------------------------------------
-{estado_tramite}
---------------------------------------------------"""
+{estado_tramite}"""
 
         st.code(cuerpo_email, language="text", wrap_lines=True)
