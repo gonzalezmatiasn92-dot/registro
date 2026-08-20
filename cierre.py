@@ -122,18 +122,16 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         b200 = st.number_input("Billetes de $200 (Cantidad):", min_value=0, step=1, value=None, placeholder="", key="b200")
         b100 = st.number_input("Billetes de $100 (Cantidad):", min_value=0, step=1, value=None, placeholder="", key="b100")
         
-    efectivo_total_contado_hoy = float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
-    monto_fajo_banco_hoy = float(((b20k or 0) * 20000) + ((b10k or 0) * 10000) + cambio_chico_dep)
+    # CORREGIDO: Se sumó '+ cambio_chico_dep' al total contado del cajón para que cuente como dinero físico de hoy en la auditoría
+    efectivo_total_contado_hoy = float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100 + cambio_chico_dep)
     
-    # CORREGIDO INTERACTIVO: El Cambio de mañana suma de forma directa lo digitado en las casillas verdes chico
+    monto_fajo_banco_hoy = float(((b20k or 0) * 20000) + ((b10k or 0) * 10000) + cambio_chico_dep)
     cambio_de_manana_dinamico = float((b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
 
     with col3:
         st.markdown("#### 📊 3. Auditoría de Caja Física Actual")
         
         auditoria_dif = round(efectivo_total_contado_hoy - efectivo_esperado_hoy, 2)
-        
-        # El pozo permanente suma en vivo lo que apartamos hoy con las casillas naranjas
         efectivo_pendiente_deposito_directo = efectivo_caja_acumulado + monto_fajo_banco_hoy
         
         st.write("")
@@ -142,7 +140,6 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         
         st.markdown("---")
         
-        # Ambas tarjetas ahora responden 100% en vivo a cada tecla y renglón por separado
         st.markdown(f"""
             <div style="background-color: rgba(255, 140, 0, 0.12); border-left: 5px solid rgba(255, 140, 0, 0.7); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
                 <span style="color: #444; font-size: 14px; font-weight: bold; display: block;">🏦 Pendiente de deposito</span>
