@@ -26,7 +26,7 @@ def renderizar_panel_utilidades():
     st.header("🧰 Panel de Utilidades y Asistente de Gestión")
     st.markdown("---")
     
-    with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
+    with St.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
         st.write("Complete los campos para calcular las diferencias de depósitos y confeccionar el e-mail automático.")
         st.write("")
         
@@ -79,6 +79,7 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
+                color_borde_html = "#FF4D4F"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -87,6 +88,7 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = "TRÁMITE SALDADO"
+                color_borde_html = "#52C41A"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(0, 123, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -95,20 +97,59 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
+                color_borde_html = "#1890FF"
 
         st.markdown("---")
-        st.markdown("##### ✉ Texto Confeccionado para Gmail")
-        st.write("Haga clic en el botón de copiar arriba a la derecha del cuadro negro. Al pegarlo en Gmail, las columnas quedarán perfectas:")
+        st.markdown("##### ✉ Rendición Formateada (Simulación Excel)")
+        st.write("Presione el botón azul de abajo. Al pegarlo en Gmail, se insertará como celdas de Excel perfectas:")
         
-        # ELIMINADAS LAS PALABRAS Y LAS RAYAS: Formato tabulado puro (\t) para encaje milimétrico en Gmail
-        cuerpo_email = f"""PATENTE: {patente if patente else '_______'}
+        # Confeccionamos la tabla HTML con bordes de celda idénticos a los que exporta Excel
+        html_copiar = f"""<div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000;">
+<p style="margin-bottom: 15px; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
+<table style="border-collapse: collapse; width: 320px; font-size: 14px; border: 1px solid #D9D9D9;">
+    <tr>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; background-color: #FAFAFA;">Deposito</td>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right; font-weight: bold;">${deposito:,.2f}</td>
+    </tr>
+    <tr>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Arancel</td>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${arancel:,.2f}</td>
+    </tr>
+    <tr>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Sellado de prenda</td>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${prenda:,.2f}</td>
+    </tr>
+    <tr>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Sellado</td>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${sell_alta:,.2f}</td>
+    </tr>
+    <tr>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px;">Alta</td>
+        <td style="border: 1px solid #D9D9D9; padding: 6px 10px; text-align: right;">${alta:,.2f}</td>
+    </tr>
+</table>
+<br>
+<table style="border-collapse: collapse; width: 440px; font-size: 14px; font-weight: bold; border: 2px solid {color_borde_html};">
+    <tr>
+        <td style="padding: 12px 15px; background-color: #FAFAFA; text-align: center; color: #000000;">{estado_tramite}</td>
+    </tr>
+</table>
+</div>"""
 
-Deposito:\t\t${deposito:,.2f}
-Arancel:\t\t${arancel:,.2f}
-Sellado de prenda:\t${prenda:,.2f}
-Sellado:\t\t${sell_alta:,.2f}
-Alta:\t\t${alta:,.2f}
-
-{estado_tramite}"""
-
-        st.code(cuerpo_email, language="text", wrap_lines=True)
+        # Mostramos una vista previa visual en la pantalla de cómo va a lucir en Gmail
+        st.markdown(html_copiar, unsafe_allow_html=True)
+        st.write("")
+        
+        # El botón ejecuta una inyección de JavaScript que escribe tanto texto plano como HTML enriquecido en el portapapeles
+        if st.button("📋 Copiar Celdas de Excel para Gmail", use_container_width=True, type="primary"):
+            st.html(f"""
+                <script>
+                const htmlType = "text/html";
+                const plainType = "text/plain";
+                const blobHtml = new Blob([`{html_copiar}`], {{ type: htmlType }});
+                const blobPlain = new Blob([`PATENTE: {patente}\\n\\nDeposito: ${deposito}\\nArancel: ${arancel}\\n{estado_tramite}`], {{ type: plainType }});
+                const data = [new ClipboardItem({{ [htmlType]: blobHtml, [plainType]: blobPlain }})];
+                navigator.clipboard.write(data);
+                </script>
+            """)
+            st.success("✅ ¡Celdas copiadas con formato Excel! Ya podés ir a Gmail y presionar Ctrl+V (Pegar).")
