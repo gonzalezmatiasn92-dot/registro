@@ -74,15 +74,10 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con buzón de solicitudes universal habilitado para todos los rangos"""
+    """Formulario interactivo de carga diaria con bloqueo estable de caja por fecha de Argentina"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     ahora_arg = obtener_fecha_argentina()
-    
-    raw_user = st.session_state.get("usuario_activo", "Sistema")
-    if isinstance(raw_user, list):
-        usuario_activo = str(raw_user if len(raw_user) > 0 else "Sistema").strip()
-    else:
-        usuario_activo = str(raw_user).strip()
+    usuario_activo = st.session_state.get("usuario_activo", "Sistema")
 
     caja_cerrada_hoy = False
     monto_fondo_inicial = 0.0
@@ -96,23 +91,10 @@ def renderizar_formulario(supabase_client):
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            monto_fondo_inicial = float(apertura_reg.data.get("efectivo") or 0.0)
-            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data.get("fecha_operacion"))
+            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
             if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
                 caja_cerrada_hoy = True
-    except Exception:
-        pass
-
-    try:
-        solicitud_aprobada = (
-            supabase_client.table("movimientos")
-            .select("id")
-            .eq("operador", usuario_activo)
-            .eq("detalle", f"REAPERTURA_APROBADA_{ahora_arg.strftime('%Y-%m-%d')}")
-            .execute()
-        )
-        if solicitud_aprobada.data and len(solicitud_aprobada.data) > 0:
-            caja_cerrada_hoy = False 
     except Exception:
         pass
 
@@ -121,28 +103,7 @@ def renderizar_formulario(supabase_client):
     st.write("")
 
     if caja_cerrada_hoy:
-        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada.")
-        
-        st.markdown("### 🔓 Solicitar reapertura de caja de emergencia")
-        motivo_reapertura = st.text_input("Declare el motivo detallado por el cual pide reabrirla:", key="motivo_reap_input")
-        
-        if st.button("🔓 Enviar solicitud de reapertura", use_container_width=True, type="primary"):
-            if not motivo_reapertura.strip():
-                st.warning("Por favor declare un motivo para enviar la solicitud.")
-            else:
-                datos_solicitud = {
-                    "detalle": f"SOLICITUD_REAPERTURA: {motivo_reapertura.strip()}",
-                    "aranceles": 0.0, "sellados": 0.0, "patentes": 0.0, "otros": 0.0, "gastos": 0.0,
-                    "efectivo": 0.0, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0,
-                    "total_neto": 0.0,
-                    "operador": usuario_activo
-                }
-                exito, msj = guardar_movimiento(supabase_client, datos_solicitud)
-                if exito:
-                    st.success("✅ Solicitud registrada con éxito. Ve a la pestaña 'Gestión de Personal' para autorizar la reapertura.")
-                    st.rerun()
-                else:
-                    st.error(msj)
+        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva. Las cargas se reanudarán automáticamente mañana.")
         return
 
     inyectar_estilos_bordes_inputs()
@@ -198,6 +159,8 @@ def renderizar_formulario(supabase_client):
         boton_guardar = st.button("💾 Registrar Operación Completa", use_container_width=True)
         
         if boton_guardar:
+            operador_activo = str(st.session_state.get("usuario_activo", "Sistema")).strip()
+
             efectivo_neto_real = efectivo
             if diferencia < 0 and efectivo > 0:
                 efectivo_neto_real = round(efectivo - abs(diferencia), 2)
@@ -207,7 +170,7 @@ def renderizar_formulario(supabase_client):
                 "aranceles": aranceles, "sellados": sellados, "patentes": patentes, "otros": otros, "gastos": gastos,
                 "efectivo": efectivo_neto_real, "debito": debito, "transferencia": transf1, "transferencia2": transf2,
                 "total_neto": total_cobrar,
-                "operador": usuario_activo
+                "operador": operador_activo
             }
             exito, msj = guardar_movimiento(supabase_client, datos)
             if exito:
@@ -218,18 +181,10 @@ def renderizar_formulario(supabase_client):
                 st.error(msj)
 
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo de reaperturas"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     
     ahora_arg = obtener_fecha_argentina()
-    
-    raw_user = st.session_state.get("usuario_activo", "Sistema")
-    if isinstance(raw_user, list):
-        usuario_activo = str(raw_user if len(raw_user) > 0 else "Sistema").strip()
-    else:
-        usuario_activo = str(raw_user).strip()
-
     caja_cerrada_hoy = False
     try:
         apertura_reg = (
@@ -241,24 +196,11 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data.get("fecha_operacion"))
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
             if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
                 caja_cerrada_hoy = True
     except Exception:
         caja_cerrada_hoy = False
-
-    try:
-        solicitud_aprobada = (
-            supabase_client.table("movimientos")
-            .select("id")
-            .eq("operador", usuario_activo)
-            .eq("detalle", f"REAPERTURA_APROBADA_{ahora_arg.strftime('%Y-%m-%d')}")
-            .execute()
-        )
-        if solicitud_aprobada.data and len(solicitud_aprobada.data) > 0:
-            caja_cerrada_hoy = False
-    except Exception:
-        pass
 
     if movimientos_hoy:
         df = pd.DataFrame(movimientos_hoy)
