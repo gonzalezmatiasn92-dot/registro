@@ -78,13 +78,14 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                # Formato visual impactante en HTML para el e-mail final de Gmail (Falta dinero)
-                bloque_veredicto_email = f"""
-<div style="background-color: #FFF5F5; border: 2px solid #CC3333; padding: 16px; border-radius: 6px; text-align: center; margin-top: 15px;">
-    <b style="color: #CC3333; font-size: 16px; letter-spacing: 0.5px;">🟥 FALTA DEPOSITAR</b><br>
-    <span style="color: #111111; font-size: 28px; font-weight: 800; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span><br>
-    <small style="color: #555555; font-size: 12px;">Los costos totales del trámite superaron el depósito inicial recibido.</small>
-</div>"""
+                
+                # Bloque visual de color para el e-mail (Falta dinero)
+                bloque_veredicto_render = f"""
+                <div style="background-color: #FFF5F5; border: 2px solid #CC3333; padding: 14px; border-radius: 6px; text-align: center; margin-top: 15px; max-width: 440px;">
+                    <b style="color: #CC3333; font-size: 16px;">🟥 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f}</b><br>
+                    <span style="color: #555555; font-size: 12px; display: block; margin-top: 3px;">Los costos superan el depósito inicial.</span>
+                </div>"""
+                
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -92,13 +93,12 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
-                # Formato visual para Gmail (Saldado justo)
-                bloque_veredicto_email = """
-<div style="background-color: #F6FFED; border: 2px solid #389E0D; padding: 16px; border-radius: 6px; text-align: center; margin-top: 15px;">
-    <b style="color: #389E0D; font-size: 16px; letter-spacing: 0.5px;">🟩 TRÁMITE SALDADO</b><br>
-    <span style="color: #111111; font-size: 24px; font-weight: 800; display: block; margin-top: 5px;">$0.00</span><br>
-    <small style="color: #555555; font-size: 12px;">El depósito inicial cubrió los costos de forma exacta.</small>
-</div>"""
+                
+                # Bloque visual de color para el e-mail (Justo)
+                bloque_veredicto_render = """
+                <div style="background-color: #F6FFED; border: 2px solid #389E0D; padding: 14px; border-radius: 6px; text-align: center; margin-top: 15px; max-width: 440px;">
+                    <b style="color: #389E0D; font-size: 16px;">🟩 TRÁMITE SALDADO</b>
+                </div>"""
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -106,52 +106,30 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                # Formato visual para Gmail (Sobrante a favor)
-                bloque_veredicto_email = f"""
-<div style="background-color: #E6F7FF; border: 2px solid #1890FF; padding: 16px; border-radius: 6px; text-align: center; margin-top: 15px;">
-    <b style="color: #1890FF; font-size: 16px; letter-spacing: 0.5px;">🟦 TOTAL A SU FAVOR</b><br>
-    <span style="color: #111111; font-size: 28px; font-weight: 800; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span><br>
-    <small style="color: #555555; font-size: 12px;">El cliente posee un crédito disponible a favor en la caja.</small>
-</div>"""
+                
+                # Bloque visual de color para el e-mail (A favor)
+                bloque_veredicto_render = f"""
+                <div style="background-color: #E6F7FF; border: 2px solid #1890FF; padding: 14px; border-radius: 6px; text-align: center; margin-top: 15px; max-width: 440px;">
+                    <b style="color: #1890FF; font-size: 16px;">🟦 TOTAL A SU FAVOR: ${diferencia_final:,.2f}</b>
+                </div>"""
 
         st.markdown("---")
-        st.markdown("##### ✉ E-mail Diseñado para Gmail (Listo para copiar)")
-        st.write("Haga clic en el botón de copiar de la esquina superior derecha del cuadro negro. Al pegarlo en Gmail, se verá con el formato estilizado de colores:")
+        st.markdown("##### ✉ E-mail Confeccionado Visualmente (Seleccione con el mouse para copiar)")
+        st.write("Pinte el texto de abajo con el cursor del mouse, haga clic derecho, seleccione 'Copiar' y péguelo directo en Gmail:")
         
-        # Confección del e-mail en bloques HTML limpios y estructurados que Gmail procesa nativamente de forma impecable al pegar
-        cuerpo_email_html = f"""<div style="font-family: Arial, sans-serif; color: #333333; max-width: 480px; padding: 10px;">
-    <h3 style="background-color: #F0F2F5; padding: 10px; border-radius: 4px; border-left: 5px solid #1890FF; margin-bottom: 20px;">
-        🆔 PATENTE: {patente if patente else '_______'}
-    </h3>
-    
-    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr>
-            <td style="padding: 6px 0; color: #666666;">💰 Depósito recibido:</td>
-            <td style="padding: 6px 0; text-align: right; font-weight: bold;">${deposito:,.2f}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #E8E8E8;">
-            <td colspan="2" style="padding: 4px 0;"></td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 0;">🧾 Arancel:</td>
-            <td style="padding: 6px 0; text-align: right;">${arancel:,.2f}</td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 0;">🏢 Sellado de prenda:</td>
-            <td style="padding: 6px 0; text-align: right;">${prenda:,.2f}</td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 0;">📑 Sellado:</td>
-            <td style="padding: 6px 0; text-align: right;">${sell_alta:,.2f}</td>
-        </tr>
-        <tr>
-            <td style="padding: 6px 0;">📈 Alta:</td>
-            <td style="padding: 6px 0; text-align: right;">${alta:,.2f}</td>
-        </tr>
-    </table>
-    
-    {bloque_veredicto_email}
-</div>
-"""
-        # Mostramos el código HTML limpio. Al copiarlo de la caja y pegarlo en el cuerpo de Gmail, toma la estética de forma automática
-        st.code(cuerpo_email_html, language="html", wrap_lines=True)
+        # CORREGIDO: Renderizado visual en texto enriquecido mediante HTML directo. El cajero copia la imagen visual y el formato viaja intacto.
+        st.markdown(f"""
+        <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #111111; max-width: 450px; padding: 12px; border: 1px dashed #BBBBBB; border-radius: 6px; background-color: #FAFAFA;">
+            <div style="background-color: #F0F2F5; padding: 8px 12px; border-radius: 4px; font-weight: bold; font-size: 15px; margin-bottom: 12px;">
+                PATENTE: {patente if patente else '_______'}
+            </div>
+            
+            <p style="margin: 4px 0;"><b>Deposito:</b> ${deposito:,.2f}</p>
+            <p style="margin: 4px 0;"><b>Arancel:</b> ${arancel:,.2f}</p>
+            <p style="margin: 4px 0;"><b>Sellado de prenda:</b> ${prenda:,.2f}</p>
+            <p style="margin: 4px 0;"><b>Sellado:</b> ${sell_alta:,.2f}</p>
+            <p style="margin: 4px 0;"><b>Alta:</b> ${alta:,.2f}</p>
+            
+            {bloque_veredicto_render}
+        </div>
+        """, unsafe_allow_html=True)
