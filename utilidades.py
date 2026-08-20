@@ -78,14 +78,7 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                
-                # Bloque visual de color para el e-mail (Falta dinero)
-                bloque_veredicto_render = f"""
-                <div style="background-color: #FFF5F5; border: 2px solid #CC3333; padding: 14px; border-radius: 6px; text-align: center; margin-top: 15px; max-width: 440px;">
-                    <b style="color: #CC3333; font-size: 16px;">🟥 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f}</b><br>
-                    <span style="color: #555555; font-size: 12px; display: block; margin-top: 3px;">Los costos superan el depósito inicial.</span>
-                </div>"""
-                
+                estado_tramite = f"🟥 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} debido a que los costos superan el deposito inicial"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -93,12 +86,7 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
-                
-                # Bloque visual de color para el e-mail (Justo)
-                bloque_veredicto_render = """
-                <div style="background-color: #F6FFED; border: 2px solid #389E0D; padding: 14px; border-radius: 6px; text-align: center; margin-top: 15px; max-width: 440px;">
-                    <b style="color: #389E0D; font-size: 16px;">🟩 TRÁMITE SALDADO</b>
-                </div>"""
+                estado_tramite = "🟩 TRÁMITE SALDADO"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -106,30 +94,25 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                
-                # Bloque visual de color para el e-mail (A favor)
-                bloque_veredicto_render = f"""
-                <div style="background-color: #E6F7FF; border: 2px solid #1890FF; padding: 14px; border-radius: 6px; text-align: center; margin-top: 15px; max-width: 440px;">
-                    <b style="color: #1890FF; font-size: 16px;">🟦 TOTAL A SU FAVOR: ${diferencia_final:,.2f}</b>
-                </div>"""
+                estado_tramite = f"🟦 TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
 
         st.markdown("---")
-        st.markdown("##### ✉ E-mail Confeccionado Visualmente (Seleccione con el mouse para copiar)")
-        st.write("Pinte el texto de abajo con el cursor del mouse, haga clic derecho, seleccione 'Copiar' y péguelo directo en Gmail:")
+        st.markdown("##### ✉ Texto para enviar (Listo para copiar)")
+        st.write("Seleccione el texto de abajo con el mouse para copiarlo y pegarlo en Gmail:")
         
-        # CORREGIDO: Renderizado visual en texto enriquecido mediante HTML directo. El cajero copia la imagen visual y el formato viaja intacto.
-        st.markdown(f"""
-        <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #111111; max-width: 450px; padding: 12px; border: 1px dashed #BBBBBB; border-radius: 6px; background-color: #FAFAFA;">
-            <div style="background-color: #F0F2F5; padding: 8px 12px; border-radius: 4px; font-weight: bold; font-size: 15px; margin-bottom: 12px;">
-                PATENTE: {patente if patente else '_______'}
-            </div>
-            
-            <p style="margin: 4px 0;"><b>Deposito:</b> ${deposito:,.2f}</p>
-            <p style="margin: 4px 0;"><b>Arancel:</b> ${arancel:,.2f}</p>
-            <p style="margin: 4px 0;"><b>Sellado de prenda:</b> ${prenda:,.2f}</p>
-            <p style="margin: 4px 0;"><b>Sellado:</b> ${sell_alta:,.2f}</p>
-            <p style="margin: 4px 0;"><b>Alta:</b> ${alta:,.2f}</p>
-            
-            {bloque_veredicto_render}
-        </div>
-        """, unsafe_allow_html=True)
+        # El e-mail se genera en texto plano prolijo y visual, sin códigos HTML visibles adentro de la caja
+        cuerpo_email = f"""PATENTE: {patente if patente else '_______'}
+
+• DEPOSITO: ${deposito:,.2f}
+• ARANCEL: ${arancel:,.2f}
+• SELLADO DE PRENDA: ${prenda:,.2f}
+• SELLADO: ${sell_alta:,.2f}
+• ALTA: ${alta:,.2f}
+
+==================================================
+
+{estado_tramite.upper()}
+
+==================================================
+"""
+        st.text_area("", value=cuerpo_email, height=300)
