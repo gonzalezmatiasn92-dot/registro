@@ -26,7 +26,8 @@ def renderizar_panel_utilidades():
     st.header("🧰 Panel de Utilidades y Asistente de Gestión")
     st.markdown("---")
     
-    with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
+    # 📝 SECCIÓN 1: Calculadora de Saldos de Trámite
+    with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=False):
         st.write("Complete los campos para generar el texto de la rendición.")
         st.write("")
         
@@ -79,6 +80,7 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"🔴 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
+                color_texto_final = "#CC3333"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -86,7 +88,8 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = "🟢 TRÁMITE SALDADO"
+                estado_tramite = "🟩 TRÁMITE SALDADO"
+                color_texto_final = "#28A745"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(0, 123, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -95,13 +98,13 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"🔵 TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
+                color_texto_final = "#007BFF"
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
         st.write("Pinte el recuadro blanco de abajo arrastrando el mouse, cópielo (Ctrl+C) y péguelo en Gmail:")
         st.write("")
         
-        # ARREGLADO: Tabla Rich-Text compactada sin el salto de línea <br> y con letras negras universales (#000000)
         st.markdown(f"""
         <div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000; max-width: 450px; padding: 10px; background-color: #FFFFFF;">
             <p style="margin: 0 0 10px 0; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
@@ -115,3 +118,54 @@ def renderizar_panel_utilidades():
             <p style="margin: 12px 0 0 0; font-weight: bold; color: #000000;">{estado_tramite}</p>
         </div>
         """, unsafe_allow_html=True)
+
+    # 📑 SECCIÓN 2: Control de Stock de Formularios
+    with st.expander("📋 2. Control y Planificación de Stock de Formularios", expanded=True):
+        st.write("Ingrese el stock físico disponible actual en el mostrador para calcular el pedido automático necesario.")
+        st.write("")
+        
+        # Diccionario fijo con las bases ideales operativas solicitadas
+        ideales_formularios = {
+            "02": 10, "04": 20, "08": 30, "08D": 35, "TP": 90, "57": 5, "59": 5, "HojCONT": 150
+        }
+        
+        # Diseñamos los títulos de las 4 columnas de forma simétrica
+        c_st, c_stock, c_ideal, c_pedido = st.columns(4)
+        
+        c_st.markdown("**📄 ST**")
+        c_stock.markdown("**🔢 STOCK ACTUAL**")
+        c_ideal.markdown("**📋 DEBERÍA TENER**")
+        c_pedido.markdown("**🚨 PEDIDO AUTOMÁTICO**")
+        st.markdown("---")
+        
+        # Iteramos renglón por renglón el stock de cada formulario de forma prolija
+        for form_name, cant_ideal in ideales_formularios.items():
+            col_st, col_stock, col_ideal, col_pedido = st.columns(4)
+            
+            # Columna 1: Nombre del Formulario fijo
+            col_st.write("")
+            col_st.markdown(f"**Formulario {form_name}**")
+            
+            # Columna 2: Casillero libre para ingresar el Stock Físico real
+            stock_real = col_stock.number_input(
+                label=f"Stock {form_name}", 
+                min_value=0, 
+                step=1, 
+                value=0, 
+                label_visibility="collapsed", 
+                key=f"stk_{form_name}"
+            )
+            
+            # Columna 4: Muestra el stock ideal fijo que debés tener en el mostrador
+            col_ideal.write("")
+            col_ideal.write(f"{cant_ideal} unidades")
+            
+            # Columna 3: Calcula cuántos hay que pedir de forma automática
+            falta_pedir = max(0, cant_ideal - stock_real)
+            col_pedido.write("")
+            if falta_pedir > 0:
+                # Si falta stock, te lo resalta con un texto en negrita indicando la compra requerida
+                col_pedido.markdown(f"<span style='color: #ff4b4b; font-weight: bold;'> pedir {falta_pedir} u.</span>", unsafe_allow_html=True)
+            else:
+                # Si estás cubierto, te estampa un ok sutil que no ensucia la pantalla
+                col_pedido.markdown("<span style='color: #28a745;'>✅ Stock OK</span>", unsafe_allow_html=True)
