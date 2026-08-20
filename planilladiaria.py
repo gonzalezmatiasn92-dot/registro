@@ -74,22 +74,17 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con soporte de versiones e indicador de fondo de cambio anterior"""
+    """Formulario interactivo de carga diaria con soporte de versiones y bloqueo por fecha argentina"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
-    fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
+    ahora_arg = obtener_fecha_argentina()
 
-    # 🔐 CHEQUEO DE SEGURIDAD INTERNO: Si ya existe un cierre de hoy, congelamos la pantalla de carga
-    try:
-        chequeo_cierre = supabase_client.table("movimientos").select("id").eq("detalle", "Apertura de Caja: Fondo de Cambio del día anterior").like("fecha_operacion", f"{fecha_hoy_str}%").execute()
-        caja_cerrada_hoy = len(chequeo_cierre.data) > 0
-    except Exception:
-        caja_cerrada_hoy = False
-
+    # 🔐 CORREGIDO: Buscador a prueba de husos horarios (Compara la fecha real de Argentina mapeando el timestamp)
+    caja_cerrada_hoy = False
     monto_fondo_inicial = 0.0
     try:
         apertura_reg = (
             supabase_client.table("movimientos")
-            .select("efectivo")
+            .select("efectivo, fecha_operacion")
             .ilike("detalle", "%Fondo de Cambio%")
             .order("id", desc=True)
             .limit(1)
@@ -97,6 +92,10 @@ def renderizar_formulario(supabase_client):
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
             monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
+            # Pasamos la fecha del último cierre a zona horaria argentina
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
+            if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
+                caja_cerrada_hoy = True
     except Exception:
         pass
 
@@ -105,7 +104,7 @@ def renderizar_formulario(supabase_client):
     st.write("")
 
     if caja_cerrada_hoy:
-        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva. No se admiten nuevas cargas.")
+        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva. No se admiten nuevas cargas hasta mañana.")
         return
 
     inyectar_estilos_bordes_inputs()
@@ -147,7 +146,7 @@ def renderizar_formulario(supabase_client):
     diferencia = round(total_cobrar - total_ingresado, 2)
     
     with col3:
-        st.markdown("#### 3. Validation")
+        st.markdown("#### 3. Validación")
         st.metric(label="Total a Cobrar", value=f"${total_cobrar:,.2f}")
         st.metric(label="Total Ingresado", value=f"${total_ingresado:,.2f}")
         
@@ -185,16 +184,27 @@ def renderizar_formulario(supabase_client):
             else:
                 st.error(msj)
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo del cierre"""
+    """Muestra transacciones del día controlando el botón de borrado mediante el parseo argentino"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     
-    fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
+    ahora_arg = obtener_fecha_argentina()
 
-    # Volvemos a chequear para congelar las herramientas de borrado abajo
+    # Volvemos a chequear usando la hora parseada de Argentina para blindar el botón de borrado abajo
+    caja_cerrada_hoy = False
     try:
-        chequeo_cierre = supabase_client.table("movimientos").select("id").eq("detalle", "Apertura de Caja: Fondo de Cambio del día anterior").like("fecha_operacion", f"{fecha_hoy_str}%").execute()
-        caja_cerrada_hoy = len(chequeo_cierre.data) > 0
+        apertura_reg = (
+            supabase_client.table("movimientos")
+            .select("fecha_operacion")
+            .ilike("detalle", "%Fondo de Cambio%")
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if apertura_reg.data and len(apertura_reg.data) > 0:
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
+            if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
+                caja_cerrada_hoy = True
     except Exception:
         caja_cerrada_hoy = False
 
@@ -243,7 +253,6 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         with col_btn:
             st.write("")
             st.write("")
-            # MODIFICADO: El botón de eliminar se bloquea automáticamente si la caja ya cerró
             if st.button("Eliminar Registro Erróneo", type="secondary", disabled=caja_cerrada_hoy):
                 if id_eliminar:
                     exito, msj = eliminar_movimiento(supabase_client, id_eliminar)
