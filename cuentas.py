@@ -6,9 +6,7 @@ def verificar_credenciales(supabase_client, usuario, clave):
     try:
         respuesta = supabase_client.table("usuarios").select("*").eq("usuario", usuario.strip()).execute()
         if respuesta.data and len(respuesta.data) > 0:
-            # CORREGIDO: Extraemos el primer diccionario de la lista devuelta por Supabase
             datos_user = respuesta.data[0]
-            
             if datos_user.get("clave") == clave.strip():
                 if datos_user.get("estado") == "Aprobado":
                     return True, "OK", datos_user
@@ -90,11 +88,11 @@ def renderizar_login_screen(supabase_client):
                         st.success(msj)
                     else:
                         st.error(msj)
-
 def renderizar_panel_gestion_personal(supabase_client):
     st.header("👥 Panel de Gestión de Personal y Reaperturas")
     st.markdown("---")
     
+    # 🔓 SECCIÓN CORREGIDA: Muestra las solicitudes de todos los usuarios (incluido Mati / Administrador)
     st.markdown("### 🔓 1. Solicitudes de Reapertura de Caja (Hoy)")
     fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
     
@@ -107,10 +105,13 @@ def renderizar_panel_gestion_personal(supabase_client):
         reaperturas_ya_aprobadas = []
 
     if solicitudes:
+        # Contador para filtrar visualmente pedidos activos
+        pedidos_visibles = 0
         for sol in solicitudes:
             if sol["operador"] not in reaperturas_ya_aprobadas:
+                pedidos_visibles += 1
                 c_user, c_mot, c_btn = st.columns(3)
-                c_user.write(f"👤 **Cajero:** `{sol['operador']}`")
+                c_user.write(f"👤 **Usuario:** `{sol['operador']}`")
                 motivo_limpio = sol["detalle"].replace("SOLICITUD_REAPERTURA:", "")
                 c_mot.write(f"💬 **Motivo:** {motivo_limpio}")
                 
@@ -125,10 +126,11 @@ def renderizar_panel_gestion_personal(supabase_client):
                     supabase_client.table("movimientos").insert(datos_aprobacion).execute()
                     st.success(f"🔓 Caja desbloqueada para `{sol['operador']}` de forma definitiva.")
                     st.rerun()
-            else:
-                st.info(f"✅ La solicitud del operador `{sol['operador']}` ya fue autorizada.")
+        
+        if pedidos_visibles == 0:
+            st.info("Todas las solicitudes de reapertura de hoy ya fueron autorizadas.")
     else:
-        st.info("No hay solicitudes de empleados esperando autorización para reabrir planillas hoy.")
+        st.info("No hay solicitudes esperando autorización para reabrir planillas hoy.")
 
     st.markdown("---")
     try:
@@ -173,7 +175,7 @@ def renderizar_panel_gestion_personal(supabase_client):
         if id_mod:
             user_sel = next((u for u in activos if u["id"] == id_mod), None)
             if user_sel:
-                st.write(f"Modificando a: **{user_sel['usuario']}** (Estado actual: {user_sel['estado']} | Rol: {user_sel['rol']})")
+                st.write(f"Modificando a: **{user_sel['usuario']}**")
                 
                 with c_rol:
                     nuevo_rol = st.selectbox("Cambiar Rol:", ["Empleado", "Encargado", "Administrador"], index=["Empleado", "Encargado", "Administrador"].index(user_sel["rol"]))
@@ -185,7 +187,3 @@ def renderizar_panel_gestion_personal(supabase_client):
                     if st.button("Aplicar Estado de Acceso", key="btn_est_u"):
                         actualizar_estado_usuario(supabase_client, user_sel["id"], nuevo_est)
                         st.rerun()
-            else:
-                st.warning("El ID ingresado no corresponde a ningún usuario activo.")
-    else:
-        st.info("No hay personal activo cargado en el sistema.")
