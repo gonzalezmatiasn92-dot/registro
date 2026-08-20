@@ -74,10 +74,12 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con bloqueo estable de caja por fecha de Argentina"""
+    """Formulario interactivo de carga diaria con pase libre jerárquico para Administradores y Encargados"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     ahora_arg = obtener_fecha_argentina()
-    usuario_activo = st.session_state.get("usuario_activo", "Sistema")
+    
+    usuario_activo = str(st.session_state.get("usuario_activo", "Sistema")).strip()
+    rol_activo = str(st.session_state.get("rol_activo", "Empleado")).strip()
 
     caja_cerrada_hoy = False
     monto_fondo_inicial = 0.0
@@ -102,9 +104,12 @@ def renderizar_formulario(supabase_client):
     st.markdown(f"<span style='color: gray; font-size: 14px;'>💵 Cambio del dia anterior: <b>${monto_fondo_inicial:,.2f}</b></span>", unsafe_allow_html=True)
     st.write("")
 
-    if caja_cerrada_hoy:
-        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva. Las cargas se reanudarán automáticamente mañana.")
+    # 🔐 MODIFICADO (Pase libre jerárquico): Si la caja cerró hoy pero el usuario es Administrador o Encargado, se salta el cartel y lo deja operar
+    if caja_cerrada_hoy and rol_activo not in ["Administrador", "Encargado"]:
+        st.error("🔒 La planilla diaria de hoy se encuentra cerrada de forma definitiva. No tienes permisos para realizar nuevas cargas.")
         return
+    elif caja_cerrada_hoy and rol_activo in ["Administrador", "Encargado"]:
+        st.warning(f"⚠️ Atención `{usuario_activo}`: La caja de hoy ya figura como cerrada, pero tienes acceso libre de jerarquía para realizar correcciones o cargas de emergencia.")
 
     inyectar_estilos_bordes_inputs()
     
@@ -159,8 +164,6 @@ def renderizar_formulario(supabase_client):
         boton_guardar = st.button("💾 Registrar Operación Completa", use_container_width=True)
         
         if boton_guardar:
-            operador_activo = str(st.session_state.get("usuario_activo", "Sistema")).strip()
-
             efectivo_neto_real = efectivo
             if diferencia < 0 and efectivo > 0:
                 efectivo_neto_real = round(efectivo - abs(diferencia), 2)
@@ -170,7 +173,7 @@ def renderizar_formulario(supabase_client):
                 "aranceles": aranceles, "sellados": sellados, "patentes": patentes, "otros": otros, "gastos": gastos,
                 "efectivo": efectivo_neto_real, "debito": debito, "transferencia": transf1, "transferencia2": transf2,
                 "total_neto": total_cobrar,
-                "operador": operador_activo
+                "operador": usuario_activo
             }
             exito, msj = guardar_movimiento(supabase_client, datos)
             if exito:
@@ -181,10 +184,13 @@ def renderizar_formulario(supabase_client):
                 st.error(msj)
 
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
+    """Muestra transacciones prohibiendo el borrado solo a los empleados basicos si la caja cerro"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     
     ahora_arg = obtener_fecha_argentina()
+    rol_activo = str(st.session_state.get("rol_activo", "Empleado")).strip()
+
     caja_cerrada_hoy = False
     try:
         apertura_reg = (
@@ -201,6 +207,9 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
                 caja_cerrada_hoy = True
     except Exception:
         caja_cerrada_hoy = False
+
+    # El botón de borrado de abajo se desactiva solo si la caja cerró Y el usuario es un Empleado básico
+    deshabilitar_borrado = caja_cerrada_hoy and (rol_activo not in ["Administrador", "Encargado"])
 
     if movimientos_hoy:
         df = pd.DataFrame(movimientos_hoy)
@@ -247,7 +256,7 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         with col_btn:
             st.write("")
             st.write("")
-            if st.button("Eliminar Registro Erróneo", type="secondary", disabled=caja_cerrada_hoy):
+            if st.button("Eliminar Registro Erróneo", type="secondary", disabled=deshabilitar_borrado):
                 if id_eliminar:
                     exito, msj = eliminar_movimiento(supabase_client, id_eliminar)
                     if exito:
