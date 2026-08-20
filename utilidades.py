@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+import pandas as pd
 
 def evaluar_celda_excel(valor_texto):
     """Permite resolver operaciones matemáticas básicas si inician con '=' como en Excel"""
@@ -80,7 +81,6 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"🔴 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
-                color_texto_final = "#CC3333"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -89,7 +89,6 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = "🟩 TRÁMITE SALDADO"
-                color_texto_final = "#28A745"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(0, 123, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -98,7 +97,6 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"🔵 TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
-                color_texto_final = "#007BFF"
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
@@ -119,53 +117,64 @@ def renderizar_panel_utilidades():
         </div>
         """, unsafe_allow_html=True)
 
-    # 📑 SECCIÓN 2: Control de Stock de Formularios
+    # 📑 SECCIÓN 2: Control de Stock de Formularios (REDISEÑADO COMPACTO)
     with st.expander("📋 2. Control y Planificación de Stock de Formularios", expanded=True):
-        st.write("Ingrese el stock físico disponible actual en el mostrador para calcular el pedido automático necesario.")
+        st.write("Haga doble clic en la celda de STOCK ACTUAL para escribir. El pedido y las alertas se calculan solos:")
         st.write("")
+
+        # 🧠 Cargamos las variables ideales fijas en la sesión para que no se borren al refrescar
+        ideales = {"02": 10, "04": 20, "08": 30, "08D": 35, "TP": 90, "57": 5, "59": 5, "HojCONT": 150}
         
-        # Diccionario fijo con las bases ideales operativas solicitadas
-        ideales_formularios = {
-            "02": 10, "04": 20, "08": 30, "08D": 35, "TP": 90, "57": 5, "59": 5, "HojCONT": 150
-        }
-        
-        # Diseñamos los títulos de las 4 columnas de forma simétrica
-        c_st, c_stock, c_ideal, c_pedido = st.columns(4)
-        
-        c_st.markdown("**📄 ST**")
-        c_stock.markdown("**🔢 STOCK ACTUAL**")
-        c_ideal.markdown("**📋 DEBERÍA TENER**")
-        c_pedido.markdown("**🚨 PEDIDO AUTOMÁTICO**")
-        st.markdown("---")
-        
-        # Iteramos renglón por renglón el stock de cada formulario de forma prolija
-        for form_name, cant_ideal in ideales_formularios.items():
-            col_st, col_stock, col_ideal, col_pedido = st.columns(4)
+        if "util_stock_data" not in st.session_state:
+            st.session_state.util_stock_data = {f: 0 for f in ideales.keys()}
+
+        # Construimos el DataFrame agrupado compacto para la mini grilla interactiva tipo Excel
+        filas_tabla = []
+        for form, ideal_val in ideales.items():
+            stk_actual = st.session_state.util_stock_data[form]
+            ped_automatico = max(0, ideal_val - stk_actual)
             
-            # Columna 1: Nombre del Formulario fijo
-            col_st.write("")
-            col_st.markdown(f"**Formulario {form_name}**")
+            filas_tabla.append({
+                "ST": f"Formulario {form}",
+                "STOCK ACTUAL": stk_actual,
+                "DEBERÍA TENER": ideal_val,
+                "PEDIDO AUTOMÁTICO": ped_automatico,
+                "ALERTA GRÁFICA": ped_automatico # Esta columna alimenta la barra visual de Streamlit
+            })
             
-            # Columna 2: Casillero libre para ingresar el Stock Físico real
-            stock_real = col_stock.number_input(
-                label=f"Stock {form_name}", 
-                min_value=0, 
-                step=1, 
-                value=0, 
-                label_visibility="collapsed", 
-                key=f"stk_{form_name}"
-            )
-            
-            # Columna 4: Muestra el stock ideal fijo que debés tener en el mostrador
-            col_ideal.write("")
-            col_ideal.write(f"{cant_ideal} unidades")
-            
-            # Columna 3: Calcula cuántos hay que pedir de forma automática
-            falta_pedir = max(0, cant_ideal - stock_real)
-            col_pedido.write("")
-            if falta_pedir > 0:
-                # Si falta stock, te lo resalta con un texto en negrita indicando la compra requerida
-                col_pedido.markdown(f"<span style='color: #ff4b4b; font-weight: bold;'> pedir {falta_pedir} u.</span>", unsafe_allow_html=True)
-            else:
-                # Si estás cubierto, te estampa un ok sutil que no ensucia la pantalla
-                col_pedido.markdown("<span style='color: #28a745;'>✅ Stock OK</span>", unsafe_allow_html=True)
+        df_stock = pd.DataFrame(filas_tabla)
+
+        # 🖥️ RENDERIZADO ULTRA COMPACTO: Inyectamos st.data_editor con barras de progreso rojas
+        grid_stock = st.data_editor(
+            df_stock,
+            use_container_width=True,
+            hide_index=True,
+            disabled=["ST", "DEBERÍA TENER", "PEDIDO AUTOMÁTICO"], # El cajero solo puede tocar la columna de Stock Actual
+            column_config={
+                "ST": st.column_config.TextColumn("📄 ST", help="Tipo de Formulario"),
+                "STOCK ACTUAL": st.column_config.NumberColumn("🔢 STOCK ACTUAL", min_value=0, step=1),
+                "DEBERÍA TENER": st.column_config.NumberColumn("📋 DEBERÍA TENER", format="%d u."),
+                "PEDIDO AUTOMÁTICO": st.column_config.NumberColumn("🚨 PEDIDO", format=" pedir %d u."),
+                # MODIFICADO VISUAL: Se introduce un gráfico de barras rojas que salta a la vista si falta mercadería
+                "ALERTA GRÁFICA": st.column_config.ProgressColumn(
+                    "📊 ESTADO CRÍTICO",
+                    help="Barra llena indica urgencia de compra",
+                    format="",
+                    min_value=0,
+                    max_value=150, # Tepeado al tope máximo de HojCONT
+                    color="red"
+                )
+            },
+            key="editor_stock_util"
+        )
+
+        # Sincronizador en caliente: Si el operador cambió un número de stock, recalculamos la grilla al instante
+        if st.session_state.get("editor_stock_util") and "edited_rows" in st.session_state["editor_stock_util"]:
+            cambios_grilla = st.session_state["editor_stock_util"]["edited_rows"]
+            if cambios_grilla:
+                for idx_fila, dict_cambios in cambios_grilla.items():
+                    if "STOCK ACTUAL" in dict_cambios:
+                        form_modificado = df_stock.iloc[idx_fila]["ST"].replace("Formulario ", "")
+                        nuevo_valor = int(dict_cambios["STOCK ACTUAL"] or 0)
+                        st.session_state.util_stock_data[form_modificado] = nuevo_valor
+                st.rerun()
