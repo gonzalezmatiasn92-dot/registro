@@ -26,7 +26,7 @@ def renderizar_panel_utilidades():
     st.header("🧰 Panel de Utilidades y Asistente de Gestión")
     st.markdown("---")
     
-    with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
+    with st.expander("¼ 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
         st.write("Complete los campos para calcular las diferencias de depósitos y confeccionar el e-mail automático.")
         st.write("")
         
@@ -78,7 +78,8 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"Falta depositar un total de ${abs(diferencia_final):,.2f} debido a que los costos superaron el depósito inicial."
+                # MODIFICADO: Estructura de veredicto escueta y exacta según lo solicitado
+                estado_tramite = f"FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} debido a que los costos superaron el depósito inicial"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -86,7 +87,7 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = "El depósito cubrió de forma exacta el total de los costos del trámite."
+                estado_tramite = "TRÁMITE SALDADO"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -94,34 +95,23 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"Queda un saldo a su favor de ${diferencia_final:,.2f} disponible en caja."
+                estado_tramite = f"TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
 
         st.markdown("---")
         st.markdown("##### ✉ Generador de E-mail Profesional (Listo para copiar)")
         
-        cuerpo_email = f"""Asunto: Detalle de Saldos y Rendición de Trámite - Patente {patente if patente else '_______'}
+        # MODIFICADO: Estructura del e-mail ultra simplificada, básica y repetitiva como tu imagen de Excel, removiendo saludos/firmas
+        cuerpo_email = f"""PATENTE: {patente if patente else '_______'}
 
-Estimado cliente,
+Deposito: ${deposito:,.2f}
+Arancel: ${arancel:,.2f}
+Sellado de prenda: ${prenda:,.2f}
+Sellado: ${sell_alta:,.2f}
+Alta: ${alta:,.2f}
 
-Le acercamos el desglose correspondiente a la liquidación del trámite de la patente {patente if patente else '_______'}:
-
-• Depósito Inicial: ${deposito:,.2f}
 --------------------------------------------------
-• Costo de Arancel: ${arancel:,.2f}
-• Sellado Prenda: ${prenda:,.2f}
-• Sellado Alta: ${sell_alta:,.2f}
-• Alta: ${alta:,.2f}
+{estado_tramite.upper()}
 --------------------------------------------------
-
-Resultado del Balance:
-{estado_tramite}
-
-Ante cualquier consulta, quedamos a su entera disposición.
-
-Atentamente,
-Administración de Mostrador
 """
-        st.write("Haga clic en el botón de copiar (ícono de hojas empalmadas arriba a la derecha del cuadro negro) para copiar el e-mail completo:")
-        
-        # CORREGIDO COMPATIBLE: Reemplazamos el cuadro de texto y el botón con st.code que incluye el portapapeles nativo infalible
+        st.write("Haga clic en el botón de copiar (ícono de hojas empalmadas arriba a la derecha del cuadro negro) para copiar el texto:")
         st.code(cuerpo_email, language="text", wrap_lines=True)
