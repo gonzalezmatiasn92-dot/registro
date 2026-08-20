@@ -74,10 +74,16 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con control estricto de llave de reapertura"""
+    """Formulario interactivo de carga diaria con soporte de versiones y buzón de solicitudes purificado"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     ahora_arg = obtener_fecha_argentina()
-    usuario_activo = st.session_state.get("usuario_activo", "Sistema")
+    
+    # CORREGIDO: Forzamos la extracción limpia del nombre de usuario para evitar que viaje como lista a la base de datos
+    raw_user = st.session_state.get("usuario_activo", "Sistema")
+    if isinstance(raw_user, list):
+        usuario_activo = str(raw_user[0] if len(raw_user) > 0 else "Sistema").strip()
+    else:
+        usuario_activo = str(raw_user).strip()
 
     caja_cerrada_hoy = False
     monto_fondo_inicial = 0.0
@@ -98,7 +104,6 @@ def renderizar_formulario(supabase_client):
     except Exception:
         pass
 
-    # 🔐 FIJADO ESTRICTO: Solo cancela el bloqueo si la lista contiene elementos reales (aprobados en la base de datos)
     try:
         solicitud_aprobada = (
             supabase_client.table("movimientos")
@@ -117,7 +122,7 @@ def renderizar_formulario(supabase_client):
     st.write("")
 
     if caja_cerrada_hoy:
-        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva.")
+        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada.")
         
         st.markdown("### 🔓 Solicitar reapertura de caja de emergencia")
         motivo_reapertura = st.text_input("Declare el motivo detallado por el cual pide reabrirla:", key="motivo_reap_input")
@@ -162,7 +167,6 @@ def renderizar_formulario(supabase_client):
         patentes = evaluar_celda_excel(t_patentes)
         otros = evaluar_celda_excel(t_otros)
         gastos = evaluar_celda_excel(t_gastos)
-        
     with col2:
         st.markdown("#### 2. Medios de Pago")
         t_efectivo = st.text_input("💵 EFECTIVO", key=f"p_efe_{v}")
@@ -195,10 +199,6 @@ def renderizar_formulario(supabase_client):
         boton_guardar = st.button("💾 Registrar Operación Completa", use_container_width=True)
         
         if boton_guardar:
-            operador_activo = st.session_state.get("usuario_activo", "").strip()
-            if not operador_activo:
-                operador_activo = "Sistema"
-
             efectivo_neto_real = efectivo
             if diferencia < 0 and efectivo > 0:
                 efectivo_neto_real = round(efectivo - abs(diferencia), 2)
@@ -208,7 +208,7 @@ def renderizar_formulario(supabase_client):
                 "aranceles": aranceles, "sellados": sellados, "patentes": patentes, "otros": otros, "gastos": gastos,
                 "efectivo": efectivo_neto_real, "debito": debito, "transferencia": transf1, "transferencia2": transf2,
                 "total_neto": total_cobrar,
-                "operador": operador_activo
+                "operador": usuario_activo
             }
             exito, msj = guardar_movimiento(supabase_client, datos)
             if exito:
@@ -217,13 +217,19 @@ def renderizar_formulario(supabase_client):
                 st.rerun()
             else:
                 st.error(msj)
+
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo estricto"""
+    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo del cierre"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     
     ahora_arg = obtener_fecha_argentina()
-    usuario_activo = st.session_state.get("usuario_activo", "Sistema")
+    
+    raw_user = st.session_state.get("usuario_activo", "Sistema")
+    if isinstance(raw_user, list):
+        usuario_activo = str(raw_user[0] if len(raw_user) > 0 else "Sistema").strip()
+    else:
+        usuario_activo = str(raw_user).strip()
 
     caja_cerrada_hoy = False
     try:
@@ -242,7 +248,6 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
     except Exception:
         caja_cerrada_hoy = False
 
-    # FIJADO ESTRICTO: Control de borrado sincronizado por longitud de lista real
     try:
         solicitud_aprobada = (
             supabase_client.table("movimientos")
@@ -286,7 +291,7 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         df_estilizado = df_limpio.style.apply(aplicar_colores_pasteles, axis=1)
         
         df_estilizado = df_estilizado.format({
-            "aranceles": "${:,.2f}", "sellados": "${:,.2f}", "patentes": "${:,.2f}",
+            "aranceles": "${:TC}", "sellados": "${:,.2f}", "patentes": "${:,.2f}",
             "otros": "${:,.2f}", "gastos": "${:,.2f}", "efectivo": "${:,.2f}",
             "debito": "${:,.2f}", "transferencia": "${:,.2f}", "transferencia2": "${:,.2f}",
             "total_neto": "${:,.2f}"
