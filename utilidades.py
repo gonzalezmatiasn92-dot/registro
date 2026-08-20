@@ -71,7 +71,6 @@ def renderizar_panel_utilidades():
             st.write("")
             st.write("")
             
-            # El cuadrado de color queda visible únicamente en la pantalla de Streamlit para el operador
             if diferencia_final < 0:
                 st.markdown(f"""
                     <div style="background-color: rgba(255, 75, 75, 0.15); border-left: 5px solid rgb(255, 75, 75); padding: 15px; border-radius: 6px;">
@@ -99,16 +98,22 @@ def renderizar_panel_utilidades():
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
-        st.write("Pinte el texto de abajo con el mouse, haga clic derecho y elija 'Copiar':")
+        st.write("Pinte el recuadro blanco de abajo arrastrando el mouse, cópielo y péguelo en Gmail:")
         st.write("")
         
-        # TEXTO PLANO ABSOLUTO: Sin cuadros de código, sin HTML oculto, sin rayas feas. Puro texto libre para arrastrar y copiar.
-        st.write(f"PATENTE: {patente if patente else '_______'}")
-        st.write("")
-        st.write(f"Deposito: ${deposito:,.2f}")
-        st.write(f"Arancel: ${arancel:,.2f}")
-        st.write(f"Sellado de prenda: ${prenda:,.2f}")
-        st.write(f"Sellado: ${sell_alta:,.2f}")
-        st.write(f"Alta: ${alta:,.2f}")
-        st.write("")
-        st.write(estado_tramite)
+        # INTERFAZ RICH-TEXT: Estructura de tabla con bordes ocultos (border: 0) y anchos fijos. 
+        # Al seleccionarlo con el mouse, Gmail se lleva la alineación de columnas limpia de forma nativa.
+        st.markdown(f"""
+        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000; max-width: 450px; padding: 10px; background-color: #FFFFFF;">
+            <p style="margin: 0 0 10px 0; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
+            <table style="width: 100%; border: 0; border-collapse: collapse;">
+                <tr><td style="width: 200px; padding: 2px 0;">Deposito:</td><td style="text-align: left; font-weight: bold;">${deposito:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Arancel:</td><td style="text-align: left;">${arancel:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Sellado de prenda:</td><td style="text-align: left;">${prenda:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Sellado:</td><td style="text-align: left;">${sell_alta:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Alta:</td><td style="text-align: left;">${alta:,.2f}</td></tr>
+            </table>
+            <br>
+            <p style="margin: 5px 0 0 0; font-weight: bold;">{estado_tramite}</p>
+        </div>
+        """, unsafe_allow_html=True)
