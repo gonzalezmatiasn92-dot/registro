@@ -78,9 +78,7 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                # MODIFICADO: Añadido el puntito rojo solicitado al inicio del veredicto escrito
                 estado_tramite = f"🔴 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
-                color_texto_final = "#CC3333"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -89,7 +87,6 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = "🟢 TRÁMITE SALDADO"
-                color_texto_final = "#28A745"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(0, 123, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -98,14 +95,13 @@ def renderizar_panel_utilidades():
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"🔵 TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
-                color_texto_final = "#007BFF"
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
         st.write("Pinte el recuadro blanco de abajo arrastrando el mouse, cópielo (Ctrl+C) y péguelo en Gmail:")
         st.write("")
         
-        # RESTAURADO: Estructura de tabla con bordes invisibles (Garantiza el encolumnado milimétrico en Gmail)
+        # ARREGLADO: Tabla Rich-Text compactada sin el salto de línea <br> y con letras negras universales (#000000)
         st.markdown(f"""
         <div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000; max-width: 450px; padding: 10px; background-color: #FFFFFF;">
             <p style="margin: 0 0 10px 0; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
@@ -116,7 +112,6 @@ def renderizar_panel_utilidades():
                 <tr><td style="padding: 2px 0;">Sellado:</td><td style="text-align: left;">${sell_alta:,.2f}</td></tr>
                 <tr><td style="padding: 2px 0;">Alta:</td><td style="text-align: left;">${alta:,.2f}</td></tr>
             </table>
-            <br>
-            <p style="margin: 5px 0 0 0; font-weight: bold; color: {color_texto_final};">{estado_tramite}</p>
+            <p style="margin: 12px 0 0 0; font-weight: bold; color: #000000;">{estado_tramite}</p>
         </div>
         """, unsafe_allow_html=True)
