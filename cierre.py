@@ -27,6 +27,22 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
     st.header("📋 Panel de Cierre de Caja y Arqueo General (Fin del Día)")
     st.markdown("---")
     
+    # 🔍 BUSCADOR EN CALIENTE DEL CAMBIO ANTERIOR: Extraemos la base inicial para la fórmula de auditoría
+    monto_fondo_inicial = 0.0
+    try:
+        apertura_reg = (
+            supabase_client.table("movimientos")
+            .select("efectivo")
+            .ilike("detalle", "%Fondo de Cambio%")
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if apertura_reg.data and len(apertura_reg.data) > 0:
+            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
+    except Exception:
+        pass
+        
     col1, col2, col3 = st.columns(3)
     tot_aran_hoy = sum(float(m.get("aranceles") or 0) for m in movimientos_hoy)
     tot_sell_hoy = sum(float(m.get("sellados") or 0) for m in movimientos_hoy)
@@ -122,16 +138,17 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         b200 = st.number_input("Billetes de $200 (Cantidad):", min_value=0, step=1, value=None, placeholder="", key="b200")
         b100 = st.number_input("Billetes de $100 (Cantidad):", min_value=0, step=1, value=None, placeholder="", key="b100")
         
-    # CORREGIDO: Se sumó '+ cambio_chico_dep' al total contado del cajón para que cuente como dinero físico de hoy en la auditoría
     efectivo_total_contado_hoy = float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100 + cambio_chico_dep)
-    
     monto_fajo_banco_hoy = float(((b20k or 0) * 20000) + ((b10k or 0) * 10000) + cambio_chico_dep)
     cambio_de_manana_dinamico = float((b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
 
     with col3:
         st.markdown("#### 📊 3. Auditoría de Caja Física Actual")
         
-        auditoria_dif = round(efectivo_total_contado_hoy - efectivo_esperado_hoy, 2)
+        # CORREGIDO: Sumamos el Cambio del día anterior a los ingresos de hoy antes de contrastar contra lo contado
+        efectivo_total_esperado_con_cambio = efectivo_esperado_hoy + monto_fondo_inicial
+        auditoria_dif = round(efectivo_total_contado_hoy - efectivo_total_esperado_con_cambio, 2)
+        
         efectivo_pendiente_deposito_directo = efectivo_caja_acumulado + monto_fajo_banco_hoy
         
         st.write("")
