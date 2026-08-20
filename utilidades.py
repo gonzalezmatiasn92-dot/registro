@@ -78,7 +78,7 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"🟥 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} debido a que los costos superan el deposito inicial"
+                estado_tramite = f"FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} debido a que los costos superan el deposito inicial"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -86,7 +86,7 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = "🟩 TRÁMITE SALDADO"
+                estado_tramite = "TRÁMITE SALDADO"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -94,13 +94,12 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"🟦 TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
+                estado_tramite = f"TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
 
         st.markdown("---")
-        st.markdown("##### ✉ Texto para enviar (Listo para copiar)")
-        st.write("Seleccione el texto de abajo con el mouse para copiarlo y pegarlo en Gmail:")
+        st.markdown("##### ✉ Texto Confeccionado")
         
-        # El e-mail se genera en texto plano prolijo y visual, sin códigos HTML visibles adentro de la caja
+        # Estructura limpia y directa sin rayas separadoras
         cuerpo_email = f"""PATENTE: {patente if patente else '_______'}
 
 • DEPOSITO: ${deposito:,.2f}
@@ -109,10 +108,16 @@ def renderizar_panel_utilidades():
 • SELLADO: ${sell_alta:,.2f}
 • ALTA: ${alta:,.2f}
 
-==================================================
+{estado_tramite.upper()}"""
 
-{estado_tramite.upper()}
-
-==================================================
-"""
-        st.text_area("", value=cuerpo_email, height=300)
+        # Mostramos la vista previa del texto plano en la pantalla
+        st.text_area("", value=cuerpo_email, height=220, disabled=True)
+        
+        # BOTÓN COMPATIBLE DE UN CLIC: Copia el texto directamente a la memoria de la PC
+        if st.button("📋 Copiar Texto Completo", use_container_width=True, type="primary"):
+            st.html(f"""
+                <script>
+                navigator.clipboard.writeText(`{cuerpo_email}`);
+                </script>
+            """)
+            st.success("✅ ¡Texto copiado con éxito! Ya puedes pegarlo en Gmail.")
