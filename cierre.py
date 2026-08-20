@@ -27,21 +27,6 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
     st.header("📋 Panel de Cierre de Caja y Arqueo General (Fin del Día)")
     st.markdown("---")
     
-    usuario_activo = st.session_state.get("usuario_activo", "Sistema")
-    fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
-
-    # 🔐 VERIFICACIÓN DE CONTROL DE CIERRES: Chequeamos si hoy ya se cerró la caja
-    try:
-        chequeo_cierre = supabase_client.table("movimientos").select("id").eq("detalle", "Apertura de Caja: Fondo de Cambio del día anterior").like("fecha_operacion", f"{fecha_hoy_str}%").execute()
-        caja_cerrada_hoy = len(chequeo_cierre.data) > 0
-    except Exception:
-        caja_cerrada_hoy = False
-
-    if caja_cerrada_hoy:
-        st.error("🔒 La caja de la fecha ya fue cerrada de forma definitiva.")
-        st.info("⚠️ El sistema ha bloqueado las operaciones del día de hoy. Mañana se volverá a habilitar de forma automática al cambiar de fecha.")
-        return
-
     monto_fondo_inicial = 0.0
     try:
         apertura_reg = (
@@ -53,7 +38,7 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
+            monto_fondo_inicial = float(apertura_reg.data.get("efectivo") or 0.0)
     except Exception:
         pass
         
@@ -107,17 +92,19 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         
         if st.button("Confirmar Depósito Bancario", use_container_width=True, type="secondary"):
             if monto_banco and monto_banco > 0:
+                usuario_actual = st.session_state.get("usuario_activo", "Sistema").strip()
+                
                 datos_retiro = {
                     "detalle": f"Depósito en Banco (Retiro parcial/total de Efectivo Acumulado)",
                     "aranceles": 0.0, "sellados": 0.0, "patentes": 0.0, "otros": 0.0, 
                     "gastos": monto_banco, 
                     "efectivo": 0.0, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0, 
                     "total_neto": float(-monto_banco),
-                    "operador": usuario_activo
+                    "operador": usuario_actual
                 }
                 exito, msj = guardar_movimiento(supabase_client, datos_retiro)
                 if exito:
-                    st.success(f"💰 Depósito de ${monto_banco:,.2f} registrado por `{usuario_activo}`. El pozo pendiente bajó.")
+                    st.success(f"💰 Depósito de ${monto_banco:,.2f} registrado por `{usuario_actual}`. El pozo pendiente bajó.")
                     st.rerun()
                 else:
                     st.error(msj)
@@ -160,10 +147,10 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         efectivo_total_esperado_con_cambio = efectivo_esperado_hoy + monto_fondo_inicial
         auditoria_dif = round(efectivo_total_contado_hoy - efectivo_total_esperado_con_cambio, 2)
         efectivo_pendiente_deposito_directo = efectivo_caja_acumulado + monto_fajo_banco_hoy
-        
+
         st.write("")
-        st.metric(label="Efectivo Esperado según Planilla (Solo Hoy)", value=f"${efectivo_esperado_hoy:,.2f}")
-        st.metric(label="Efectivo Contado Real en Cajón (Solo Hoy)", value=f"${efectivo_total_contado_hoy:,.2f}")
+        st.metric(label="Efectivo Esperado según Planilla (Solo Hoy)", value=f"${efectivo_esperado_hoy:".2f"}")
+        st.metric(label="Efectivo Contado Real en Cajón (Solo Hoy)", value=f"${efectivo_total_contado_hoy:".2f"}")
         
         st.markdown("---")
         
@@ -187,17 +174,25 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
             st.error(f" 🟥 FALTANTE DE HOY: ${abs(auditoria_dif):,.2f}")
             
         st.markdown("---")
-        
-        # 🔔 INTERRUPTOR DE ADVERTENCIA OBLIGATORIO PREVIO AL CIERRE
         confirmado = st.checkbox("✔ Confirmar Cierre Diario", key="chk_conf_cierre")
         if confirmado:
             st.warning("⚠️ Advertencia: Al confirmar el cierre, la planilla diaria se bloqueará por completo por el resto del día.")
             
         st.write("")
-        # El botón solo se activa si la casilla está tildada
         if st.button("🔒 Ejecutar Cierre y Traspasar Cambio", type="primary", use_container_width=True, disabled=not confirmado):
             usuario_cierre = st.session_state.get("usuario_activo", "Sistema")
             
+            # AUTOMATIZADO: Asentamos el fajo de hoy como un registro contable de tipo ingreso de efectivo acumulado
+            if monto_fajo_banco_hoy > 0:
+                datos_fajo = {
+                    "detalle": "Consolidación de Efectivo: Fajo diario derivado al pozo pendiente de depósito",
+                    "aranceles": 0.0, "sellados": 0.0, "patentes": 0.0, "otros": 0.0, "gastos": 0.0,
+                    "efectivo": monto_fajo_banco_hoy, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0, 
+                    "total_neto": float(monto_fajo_banco_hoy),
+                    "operador": usuario_cierre
+                }
+                guardar_movimiento(supabase_client, datos_fajo)
+
             if cambio_de_manana_dinamico > 0:
                 datos_apertura = {
                     "detalle": "Apertura de Caja: Fondo de Cambio del día anterior",
