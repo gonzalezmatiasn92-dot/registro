@@ -38,7 +38,7 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            monto_fondo_inicial = float(apertura_reg.data.get("efectivo") or 0.0)
+            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
     except Exception:
         pass
         
@@ -149,8 +149,9 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         efectivo_pendiente_deposito_directo = efectivo_caja_acumulado + monto_fajo_banco_hoy
 
         st.write("")
-        st.metric(label="Efectivo Esperado según Planilla (Solo Hoy)", value=f"${efectivo_esperado_hoy:".2f"}")
-        st.metric(label="Efectivo Contado Real en Cajón (Solo Hoy)", value=f"${efectivo_total_contado_hoy:".2f"}")
+        # REPARADO: Formato de comillas simples corregido para evitar errores de sintaxis
+        st.metric(label="Efectivo Esperado según Planilla (Solo Hoy)", value=f"${efectivo_esperado_hoy:,.2f}")
+        st.metric(label="Efectivo Contado Real en Cajón (Solo Hoy)", value=f"${efectivo_total_contado_hoy:,.2f}")
         
         st.markdown("---")
         
@@ -182,7 +183,6 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         if st.button("🔒 Ejecutar Cierre y Traspasar Cambio", type="primary", use_container_width=True, disabled=not confirmado):
             usuario_cierre = st.session_state.get("usuario_activo", "Sistema")
             
-            # AUTOMATIZADO: Asentamos el fajo de hoy como un registro contable de tipo ingreso de efectivo acumulado
             if monto_fajo_banco_hoy > 0:
                 datos_fajo = {
                     "detalle": "Consolidación de Efectivo: Fajo diario derivado al pozo pendiente de depósito",
