@@ -4,8 +4,9 @@ from logica import procesar_metricas
 from planilladiaria import renderizar_sidebar, renderizar_formulario, renderizar_tabla_movimientos
 from cierre import renderizar_cierre_caja
 from informes import renderizar_modulo_exportacion
-# Importamos la seguridad y el nuevo módulo de control de personal
 from cuentas import renderizar_login_screen, renderizar_panel_gestion_personal
+# INCORPORADO: Importamos la nueva función del asistente de mails y liquidación parcial
+from utilidades import renderizar_panel_utilidades
 
 st.set_page_config(
     page_title="Sistema Integral de Caja",
@@ -31,7 +32,6 @@ def traer_movimientos_seguros(supabase_client):
     except Exception as e:
         st.error(f"Error crítico en la comunicación con Supabase: {e}")
         return []
-
 def main():
     # Inicializar cliente único de Supabase de la planilla
     supabase_client = obtener_cliente()
@@ -59,10 +59,10 @@ def main():
             st.session_state.rol_activo = ""
             st.rerun()
 
-    # Estructura base de pestañas. La solapa de Gestión de Personal se crea oculta por defecto
-    tabs_nombres = ["📝 Planilla Diaria", "🔒 Cierre de Caja / Arqueo", "📥 Exportar Informes"]
+    # INCORPORADO: Añadimos '🧰 Utilidades' en la botonera de navegación de pestañas
+    tabs_nombres = ["📝 Planilla Diaria", "🔒 Cierre de Caja / Arqueo", "🧰 Utilidades", "📥 Exportar Informes"]
     
-    # Si ingresa el Dueño (Administrador) o el Encargado Titular, se inyecta la cuarta pestaña en el menú
+    # Si ingresa el Dueño (Administrador) o el Encargado Titular, se inyecta la solapa administrativa al final
     if st.session_state.rol_activo in ["Administrador", "Encargado"]:
         tabs_nombres.append("👥 Gestión de Personal")
         
@@ -76,11 +76,15 @@ def main():
         renderizar_cierre_caja(supabase_client, efectivo_caja, movimientos_hoy)
         
     with pestanas[2]:
+        # INCORPORADO: Renderizado dinámico del panel de e-mails y Excel de patentes
+        renderizar_panel_utilidades()
+        
+    with pestanas[3]:
         renderizar_modulo_exportacion(todos_los_movimientos)
         
-    # Condicional de renderizado exclusivo en pantalla para el bloque administrativo
+    # Condicional de renderizado exclusivo en pantalla para el bloque administrativo (Desplazado al índice 4)
     if st.session_state.rol_activo in ["Administrador", "Encargado"]:
-        with pestanas[3]:
+        with pestanas[4]:
             renderizar_panel_gestion_personal(supabase_client)
 
 if __name__ == "__main__":
