@@ -26,7 +26,8 @@ def renderizar_panel_utilidades():
     st.header("🧰 Panel de Utilidades y Asistente de Gestión")
     st.markdown("---")
     
-    with St.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
+    # CORREGIDO: Se cambió 'St.expander' por 'st.expander' con s minúscula como corresponde
+    with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
         st.write("Complete los campos para calcular las diferencias de depósitos y confeccionar el e-mail automático.")
         st.write("")
         
@@ -103,7 +104,7 @@ def renderizar_panel_utilidades():
         st.markdown("##### ✉ Rendición Formateada (Simulación Excel)")
         st.write("Presione el botón azul de abajo. Al pegarlo en Gmail, se insertará como celdas de Excel perfectas:")
         
-        # Confeccionamos la tabla HTML con bordes de celda idénticos a los que exporta Excel
+        # Confeccionamos la tabla HTML limpia con el formato de celdas que imita a Excel
         html_copiar = f"""<div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000;">
 <p style="margin-bottom: 15px; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
 <table style="border-collapse: collapse; width: 320px; font-size: 14px; border: 1px solid #D9D9D9;">
@@ -136,11 +137,11 @@ def renderizar_panel_utilidades():
 </table>
 </div>"""
 
-        # Mostramos una vista previa visual en la pantalla de cómo va a lucir en Gmail
+        # Mostramos la vista previa en pantalla de las celdas
         st.markdown(html_copiar, unsafe_allow_html=True)
         st.write("")
         
-        # El botón ejecuta una inyección de JavaScript que escribe tanto texto plano como HTML enriquecido en el portapapeles
+        # Inyección segura de JavaScript que copia tanto el formato de celdas (HTML) como texto plano de respaldo
         if st.button("📋 Copiar Celdas de Excel para Gmail", use_container_width=True, type="primary"):
             st.html(f"""
                 <script>
@@ -152,4 +153,4 @@ def renderizar_panel_utilidades():
                 navigator.clipboard.write(data);
                 </script>
             """)
-            st.success("✅ ¡Celdas copiadas con formato Excel! Ya podés ir a Gmail y presionar Ctrl+V (Pegar).")
+            st.success("✅ ¡Celdas copiadas con formato Excel! Ya puedes ir a Gmail y presionar Ctrl+V (Pegar).")
