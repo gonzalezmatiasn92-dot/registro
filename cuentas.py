@@ -6,7 +6,7 @@ def verificar_credenciales(supabase_client, usuario, clave):
     try:
         respuesta = supabase_client.table("usuarios").select("*").eq("usuario", usuario.strip()).execute()
         if respuesta.data:
-            datos_user = respuesta.data[0]
+            datos_user = respuesta.data
             if datos_user.get("clave") == clave.strip():
                 if datos_user.get("estado") == "Aprobado":
                     return True, "OK", datos_user
@@ -54,7 +54,9 @@ def actualizar_rol_usuario(supabase_client, user_id, nuevo_rol):
 def renderizar_login_screen(supabase_client):
     st.markdown("<h1 style='text-align: center;'>🔐 Acceso al Sistema de Caja</h1>", unsafe_allow_html=True)
     st.write("")
-    col_izq, col_cen, col_der = st.columns()
+    
+    # CORREGIDO: Se inyectó el número 3 para armar las columnas correctamente y centrar el Login
+    col_izq, col_cen, col_der = st.columns(3)
     with col_cen:
         modo = st.radio("Seleccione una opción:", ["Iniciar Sesión", "Solicitar Cuenta Nueva"], horizontal=True)
         st.markdown("---")
@@ -92,12 +94,10 @@ def renderizar_panel_gestion_personal(supabase_client):
     st.header("👥 Panel de Gestión de Personal y Reaperturas")
     st.markdown("---")
     
-    # 🔓 SECCIÓN DE APRECIACIÓN EN VIVO DE SOLICITUDES DE REAPERTURA DE CAJA
     st.markdown("### 🔓 1. Solicitudes de Reapertura de Caja (Hoy)")
     fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
     
     try:
-        # Buscamos en movimientos las solicitudes de reapertura pendientes de hoy
         movs_hoy = supabase_client.table("movimientos").select("*").like("fecha_operacion", f"{fecha_hoy_str}%").execute().data or []
         solicitudes = [m for m in movs_hoy if str(m.get("detalle", "")).startswith("SOLICITUD_REAPERTURA:")]
         reaperturas_ya_aprobadas = [m.get("operador") for m in movs_hoy if str(m.get("detalle", "")).startswith("REAPERTURA_APROBADA_")]
@@ -108,9 +108,8 @@ def renderizar_panel_gestion_personal(supabase_client):
     if solicitudes:
         for sol in solicitudes:
             if sol["operador"] not in reaperturas_ya_aprobadas:
-                c_user, c_mot, c_btn = st.columns([1, 2, 1])
+                c_user, c_mot, c_btn = st.columns(3)
                 c_user.write(f"👤 **Cajero:** `{sol['operador']}`")
-                # Filtramos el prefijo para mostrar solo la causa real tipeada
                 motivo_limpio = sol["detalle"].replace("SOLICITUD_REAPERTURA:", "")
                 c_mot.write(f"💬 **Motivo:** {motivo_limpio}")
                 
