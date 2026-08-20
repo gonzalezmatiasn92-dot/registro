@@ -98,22 +98,25 @@ def renderizar_panel_utilidades():
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
-        st.write("Pinte el recuadro blanco de abajo arrastrando el mouse, cópielo y péguelo en Gmail:")
-        st.write("")
+        st.write("Haga clic en el botón de copiar (ícono de las hojas empalmadas arriba a la derecha del cuadro negro) para copiar el texto libre de códigos:")
         
-        # INTERFAZ RICH-TEXT: Estructura de tabla con bordes ocultos (border: 0) y anchos fijos. 
-        # Al seleccionarlo con el mouse, Gmail se lleva la alineación de columnas limpia de forma nativa.
-        st.markdown(f"""
-        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000; max-width: 450px; padding: 10px; background-color: #FFFFFF;">
-            <p style="margin: 0 0 10px 0; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
-            <table style="width: 100%; border: 0; border-collapse: collapse;">
-                <tr><td style="width: 200px; padding: 2px 0;">Deposito:</td><td style="text-align: left; font-weight: bold;">${deposito:,.2f}</td></tr>
-                <tr><td style="padding: 2px 0;">Arancel:</td><td style="text-align: left;">${arancel:,.2f}</td></tr>
-                <tr><td style="padding: 2px 0;">Sellado de prenda:</td><td style="text-align: left;">${prenda:,.2f}</td></tr>
-                <tr><td style="padding: 2px 0;">Sellado:</td><td style="text-align: left;">${sell_alta:,.2f}</td></tr>
-                <tr><td style="padding: 2px 0;">Alta:</td><td style="text-align: left;">${alta:,.2f}</td></tr>
-            </table>
-            <br>
-            <p style="margin: 5px 0 0 0; font-weight: bold;">{estado_tramite}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        # ALINEACIÓN RÍGIDA: Calculamos los espacios exactos para que queden filas y columnas fijas al pegar en Gmail
+        p_str = f"{patente if patente else '_______'}"
+        dep_str   = f"${deposito:,.2f}"
+        aran_str  = f"${arancel:,.2f}"
+        pren_str  = f"${prenda:,.2f}"
+        sell_str  = f"${sell_alta:,.2f}"
+        alta_str  = f"${alta:,.2f}"
+        
+        cuerpo_email = (
+            f"PATENTE: {p_str}\n\n"
+            f"Deposito:          {dep_str}\n"
+            f"Arancel:           {aran_str}\n"
+            f"Sellado de prenda: {pren_str}\n"
+            f"Sellado:           {sell_str}\n"
+            f"Alta:              {alta_str}\n\n"
+            f"{estado_tramite}"
+        )
+
+        # Habilitamos st.code en modo texto puro para que el botón copie los datos alineados sin arrastrar programación de fondo
+        st.code(cuerpo_email, language="text", wrap_lines=True)
