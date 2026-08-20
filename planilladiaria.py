@@ -74,14 +74,13 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con soporte de versiones y buzón de solicitudes purificado"""
+    """Formulario interactivo de carga diaria con buzón de solicitudes universal habilitado para todos los rangos"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     ahora_arg = obtener_fecha_argentina()
     
-    # CORREGIDO: Forzamos la extracción limpia del nombre de usuario para evitar que viaje como lista a la base de datos
     raw_user = st.session_state.get("usuario_activo", "Sistema")
     if isinstance(raw_user, list):
-        usuario_activo = str(raw_user[0] if len(raw_user) > 0 else "Sistema").strip()
+        usuario_activo = str(raw_user if len(raw_user) > 0 else "Sistema").strip()
     else:
         usuario_activo = str(raw_user).strip()
 
@@ -97,8 +96,8 @@ def renderizar_formulario(supabase_client):
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
-            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
+            monto_fondo_inicial = float(apertura_reg.data.get("efectivo") or 0.0)
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data.get("fecha_operacion"))
             if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
                 caja_cerrada_hoy = True
     except Exception:
@@ -219,7 +218,7 @@ def renderizar_formulario(supabase_client):
                 st.error(msj)
 
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo del cierre"""
+    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo de reaperturas"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     
@@ -227,7 +226,7 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
     
     raw_user = st.session_state.get("usuario_activo", "Sistema")
     if isinstance(raw_user, list):
-        usuario_activo = str(raw_user[0] if len(raw_user) > 0 else "Sistema").strip()
+        usuario_activo = str(raw_user if len(raw_user) > 0 else "Sistema").strip()
     else:
         usuario_activo = str(raw_user).strip()
 
@@ -242,7 +241,7 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data.get("fecha_operacion"))
             if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
                 caja_cerrada_hoy = True
     except Exception:
@@ -291,7 +290,7 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         df_estilizado = df_limpio.style.apply(aplicar_colores_pasteles, axis=1)
         
         df_estilizado = df_estilizado.format({
-            "aranceles": "${:TC}", "sellados": "${:,.2f}", "patentes": "${:,.2f}",
+            "aranceles": "${:,.2f}", "sellados": "${:,.2f}", "patentes": "${:,.2f}",
             "otros": "${:,.2f}", "gastos": "${:,.2f}", "efectivo": "${:,.2f}",
             "debito": "${:,.2f}", "transferencia": "${:,.2f}", "transferencia2": "${:,.2f}",
             "total_neto": "${:,.2f}"
