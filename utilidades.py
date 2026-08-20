@@ -26,7 +26,6 @@ def renderizar_panel_utilidades():
     st.header("🧰 Panel de Utilidades y Asistente de Gestión")
     st.markdown("---")
     
-    # Usamos un expansor oculto para que no ocupe espacio visual si no se está usando
     with st.expander("📝 1. Calculadora de Saldos de Trámite y Generador de E-mails", expanded=True):
         st.write("Complete los campos para calcular las diferencias de depósitos y confeccionar el e-mail automático.")
         st.write("")
@@ -49,7 +48,6 @@ def renderizar_panel_utilidades():
             sell_alta = evaluar_celda_excel(t_sell_alta)
             alta = evaluar_celda_excel(t_alta)
             
-        # LÓGICA DE DESCUENTOS PARCIALES IDÉNTICA A TU EXCEL
         saldo_despues_arancel = deposito - arancel
         saldo_despues_prenda = saldo_despues_arancel - prenda
         saldo_despues_sell_alta = saldo_despues_prenda - sell_alta
@@ -73,31 +71,27 @@ def renderizar_panel_utilidades():
             st.write("")
             st.write("")
             
-            # SEMÁFORO INTELIGENTE SEGÚN EL SALDO FINAL
             if diferencia_final < 0:
-                # Falta plata: Cartel Rojo de 'Total a depositar'
                 st.markdown(f"""
-                    <div style="background-color: rgba(255, 100, 100, 0.15); border-left: 5px solid rgb(255, 75, 75); padding: 15px; border-radius: 6px;">
+                    <div style="background-color: rgba(255, 140, 0, 0.12); border-left: 5px solid rgb(255, 75, 75); padding: 15px; border-radius: 6px;">
                         <span style="color: #ff4b4b; font-size: 15px; font-weight: bold; display: block;">🟥 TOTAL A DEPOSITAR</span>
-                        <span style="color: black; font-size: 26px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
+                        <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"Falta depositar un total de ${abs(diferencia_final):,.2f} debido a que los costos superaron el depósito inicial."
             elif diferencia_final == 0:
-                # Cero: Cartel Verde de Coincidencia exacta
                 st.markdown("""
-                    <div style="background-color: rgba(100, 220, 100, 0.15); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
+                    <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
                         <span style="color: #28a745; font-size: 15px; font-weight: bold; display: block;">🟩 TRÁMITE SALDADO</span>
-                        <span style="color: black; font-size: 26px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
+                        <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = "El depósito cubrió de forma exacta el total de los costos del trámite."
             else:
-                # Le sobra plata: Cartel Azul de 'Total a su favor'
                 st.markdown(f"""
-                    <div style="background-color: rgba(0, 191, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
+                    <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
                         <span style="color: #007bff; font-size: 15px; font-weight: bold; display: block;">🟦 TOTAL A SU FAVOR</span>
-                        <span style="color: black; font-size: 26px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
+                        <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
                 estado_tramite = f"Queda un saldo a su favor de ${diferencia_final:,.2f} disponible en caja."
@@ -105,7 +99,6 @@ def renderizar_panel_utilidades():
         st.markdown("---")
         st.markdown("##### ✉ Generador de E-mail Profesional (Listo para copiar)")
         
-        # Confección del texto del Mail estructurado de forma automática
         cuerpo_email = f"""Asunto: Detalle de Saldos y Rendición de Trámite - Patente {patente if patente else '_______'}
 
 Estimado cliente,
@@ -128,8 +121,7 @@ Ante cualquier consulta, quedamos a su entera disposición.
 Atentamente,
 Administración de Mostrador
 """
+        st.write("Haga clic en el botón de copiar (ícono de hojas empalmadas arriba a la derecha del cuadro negro) para copiar el e-mail completo:")
         
-        st.text_area("Texto confeccionado para Gmail:", value=cuerpo_email, height=350, key="txt_area_mail")
-        
-        # Botón nativo moderno para copiar el e-mail al portapapeles con un clic
-        st.copy_to_clipboard(cuerpo_email, before_copy_label="📋 Copiar E-mail completo", after_copy_label="✅ ¡Copiado en el portapapeles!")
+        # CORREGIDO COMPATIBLE: Reemplazamos el cuadro de texto y el botón con st.code que incluye el portapapeles nativo infalible
+        st.code(cuerpo_email, language="text", wrap_lines=True)
