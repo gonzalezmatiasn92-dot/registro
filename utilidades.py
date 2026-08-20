@@ -71,7 +71,7 @@ def renderizar_panel_utilidades():
             st.write("")
             st.write("")
             
-            # Se mantiene el recuadro de color únicamente en la pantalla de Streamlit para control del operador
+            # El cuadrado de color queda visible únicamente en la pantalla de Streamlit para el operador
             if diferencia_final < 0:
                 st.markdown(f"""
                     <div style="background-color: rgba(255, 75, 75, 0.15); border-left: 5px solid rgb(255, 75, 75); padding: 15px; border-radius: 6px;">
@@ -98,19 +98,17 @@ def renderizar_panel_utilidades():
                 estado_tramite = f"TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
 
         st.markdown("---")
-        st.markdown("##### ✉ Texto Confeccionado (Sin códigos ni rayas)")
-        st.write("Haga clic en el botón de copiar de la esquina superior derecha del cuadro negro para llevar el texto puro:")
+        st.markdown("##### ✉ Texto Confeccionado para Gmail")
+        st.write("Pinte el texto de abajo con el mouse, haga clic derecho y elija 'Copiar':")
+        st.write("")
         
-        # TEXTO SECÓ Y DIRECTO: Formato plano sin una sola línea de código, alineado de forma limpia
-        cuerpo_email = f"""PATENTE: {patente if patente else '_______'}
-
-Deposito: ${deposito:,.2f}
-Arancel: ${arancel:,.2f}
-Sellado de prenda: ${prenda:,.2f}
-Sellado: ${sell_alta:,.2f}
-Alta: ${alta:,.2f}
-
-{estado_tramite}"""
-
-        # st.code genera la copia automática oficial de Streamlit asegurando que viaje texto limpio
-        st.code(cuerpo_email, language="text", wrap_lines=True)
+        # TEXTO PLANO ABSOLUTO: Sin cuadros de código, sin HTML oculto, sin rayas feas. Puro texto libre para arrastrar y copiar.
+        st.write(f"PATENTE: {patente if patente else '_______'}")
+        st.write("")
+        st.write(f"Deposito: ${deposito:,.2f}")
+        st.write(f"Arancel: ${arancel:,.2f}")
+        st.write(f"Sellado de prenda: ${prenda:,.2f}")
+        st.write(f"Sellado: ${sell_alta:,.2f}")
+        st.write(f"Alta: ${alta:,.2f}")
+        st.write("")
+        st.write(estado_tramite)
