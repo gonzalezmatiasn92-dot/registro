@@ -74,7 +74,7 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo con buzón de solicitudes universal habilitado para todos los rangos"""
+    """Formulario interactivo de carga diaria con control estricto de llave de reapertura"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     ahora_arg = obtener_fecha_argentina()
     usuario_activo = st.session_state.get("usuario_activo", "Sistema")
@@ -91,13 +91,14 @@ def renderizar_formulario(supabase_client):
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            monto_fondo_inicial = float(apertura_reg.data.get("efectivo") or 0.0)
-            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data.get("fecha_operacion"))
+            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
             if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
                 caja_cerrada_hoy = True
     except Exception:
         pass
 
+    # 🔐 FIJADO ESTRICTO: Solo cancela el bloqueo si la lista contiene elementos reales (aprobados en la base de datos)
     try:
         solicitud_aprobada = (
             supabase_client.table("movimientos")
@@ -115,9 +116,8 @@ def renderizar_formulario(supabase_client):
     st.markdown(f"<span style='color: gray; font-size: 14px;'>💵 Cambio del dia anterior: <b>${monto_fondo_inicial:,.2f}</b></span>", unsafe_allow_html=True)
     st.write("")
 
-    # CORREGIDO: Al cerrarse la caja, se le abre el buzón de texto de forma universal a Administradores, Encargados y Empleados
     if caja_cerrada_hoy:
-        st.error("🔒 La planilla diaria de hoy se encuentra cerrada.")
+        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva.")
         
         st.markdown("### 🔓 Solicitar reapertura de caja de emergencia")
         motivo_reapertura = st.text_input("Declare el motivo detallado por el cual pide reabrirla:", key="motivo_reap_input")
@@ -135,7 +135,8 @@ def renderizar_formulario(supabase_client):
                 }
                 exito, msj = guardar_movimiento(supabase_client, datos_solicitud)
                 if exito:
-                    st.success("✅ Solicitud registrada con éxito. Si eres Administrador/Encargado ve a 'Gestión de Personal' para auto-aprobarte el ingreso.")
+                    st.success("✅ Solicitud registrada con éxito. Ve a la pestaña 'Gestión de Personal' para autorizar la reapertura.")
+                    st.rerun()
                 else:
                     st.error(msj)
         return
@@ -217,7 +218,7 @@ def renderizar_formulario(supabase_client):
             else:
                 st.error(msj)
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra transacciones del día vinculando la llave de reapertura unificada"""
+    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo estricto"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     
@@ -235,12 +236,13 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data.get("fecha_operacion"))
+            dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
             if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
                 caja_cerrada_hoy = True
     except Exception:
         caja_cerrada_hoy = False
 
+    # FIJADO ESTRICTO: Control de borrado sincronizado por longitud de lista real
     try:
         solicitud_aprobada = (
             supabase_client.table("movimientos")
