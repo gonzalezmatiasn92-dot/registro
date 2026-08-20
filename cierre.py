@@ -53,7 +53,7 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
             .execute()
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
-            monto_fondo_inicial = float(apertura_reg.data.get("efectivo") or 0.0)
+            monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
     except Exception:
         pass
         
@@ -122,11 +122,11 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
                     "gastos": monto_banco, 
                     "efectivo": 0.0, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0, 
                     "total_neto": float(-monto_banco),
-                    "operador": usuario_activo
+                    "operador": usuario_actual
                 }
                 exito, msj = guardar_movimiento(supabase_client, datos_retiro)
                 if exito:
-                    st.success(f"💰 Depósito de ${monto_banco:,.2f} registrado por `{usuario_activo}`. El pozo pendiente bajó.")
+                    st.success(f"💰 Depósito de ${monto_banco:,.2f} registrado por `{usuario_actual}`. El pozo pendiente bajó.")
                     st.rerun()
                 else:
                     st.error(msj)
@@ -162,8 +162,8 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
     efectivo_total_contado_hoy = float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100 + cambio_chico_dep)
     monto_fajo_banco_hoy = float(((b20k or 0) * 20000) + ((b10k or 0) * 10000) + cambio_chico_dep)
     
-    # REPARADO: Se restauró la suma interactiva nativa de los billetes chicos para que dibuje el valor al instante en la tarjeta verde
-    cambio_de_manana_dinamico = float((b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
+    # MODIFICADO DEFINITIVO: Forzamos a que el Cambio de mañana muestre con precisión absoluta el fondo inicial de cambio heredado
+    cambio_de_manana_fijo = monto_fondo_inicial
 
     with col3:
         st.markdown("#### 📊 3. Auditoría de Caja Física Actual")
@@ -186,7 +186,7 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
             
             <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgba(100, 220, 100, 0.7); padding: 12px; border-radius: 6px; margin-bottom: 15px;">
                 <span style="color: #444; font-size: 14px; font-weight: bold; display: block;">💵 Cambio de mañana</span>
-                <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 4px;">${cambio_de_manana_dinamico:,.2f}</span>
+                <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 4px;">${cambio_de_manana_fijo:,.2f}</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -216,12 +216,13 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
                 }
                 guardar_movimiento(supabase_client, datos_fajo)
 
-            if cambio_de_manana_dinamico > 0:
+            # Guardamos exactamente la misma base heredada de cambio operativa para la apertura de mañana
+            if cambio_de_manana_fijo > 0:
                 datos_apertura = {
                     "detalle": "Apertura de Caja: Fondo de Cambio del día anterior",
                     "aranceles": 0.0, "sellados": 0.0, "patentes": 0.0, "otros": 0.0, "gastos": 0.0,
-                    "efectivo": cambio_de_manana_dinamico, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0, 
-                    "total_neto": float(cambio_de_manana_dinamico),
+                    "efectivo": cambio_de_manana_fijo, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0, 
+                    "total_neto": float(cambio_de_manana_fijo),
                     "operador": usuario_cierre
                 }
                 guardar_movimiento(supabase_client, datos_apertura)
