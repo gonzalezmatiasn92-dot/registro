@@ -59,7 +59,7 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         
     col1, col2, col3 = st.columns(3)
     
-    # CORREGIDO: Filtramos para que la planilla no compute la consolidación automática del fajo ni aperturas dentro de los totales diarios operativos
+    # Filtramos para que la planilla no compute la consolidación automática del fajo ni aperturas dentro de los totales diarios operativos
     movs_filtrados = [
         m for m in movimientos_hoy 
         if "Consolidación de Efectivo" not in str(m.get("detalle") or "") 
@@ -161,6 +161,8 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
         
     efectivo_total_contado_hoy = float((b20k or 0)*20000 + (b10k or 0)*10000 + (b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100 + cambio_chico_dep)
     monto_fajo_banco_hoy = float(((b20k or 0) * 20000) + ((b10k or 0) * 10000) + cambio_chico_dep)
+    
+    # REPARADO: Se restauró la suma interactiva nativa de los billetes chicos para que dibuje el valor al instante en la tarjeta verde
     cambio_de_manana_dinamico = float((b2k or 0)*2000 + (b1k or 0)*1000 + (b500 or 0)*500 + (b200 or 0)*200 + (b100 or 0)*100)
 
     with col3:
@@ -202,6 +204,8 @@ def renderizar_cierre_caja(supabase_client, efectivo_caja_acumulado, movimientos
             
         st.write("")
         if st.button("🔒 Ejecutar Cierre y Traspasar Cambio", type="primary", use_container_width=True, disabled=not confirmado):
+            usuario_cierre = st.session_state.get("usuario_activo", "Sistema")
+            
             if monto_fajo_banco_hoy > 0:
                 datos_fajo = {
                     "detalle": "Consolidación de Efectivo: Fajo diario derivado al pozo pendiente de depósito",
