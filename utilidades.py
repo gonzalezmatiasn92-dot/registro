@@ -78,7 +78,9 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
+                # MODIFICADO: Añadido el puntito rojo solicitado al inicio del veredicto escrito
+                estado_tramite = f"🔴 FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
+                color_texto_final = "#CC3333"
             elif diferencia_final == 0:
                 st.markdown("""
                     <div style="background-color: rgba(100, 220, 100, 0.12); border-left: 5px solid rgb(40, 167, 69); padding: 15px; border-radius: 6px;">
@@ -86,7 +88,8 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">$0.00</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = "TRÁMITE SALDADO"
+                estado_tramite = "🟢 TRÁMITE SALDADO"
+                color_texto_final = "#28A745"
             else:
                 st.markdown(f"""
                     <div style="background-color: rgba(0, 123, 255, 0.12); border-left: 5px solid rgb(0, 123, 255); padding: 15px; border-radius: 6px;">
@@ -94,29 +97,26 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${diferencia_final:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                estado_tramite = f"TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
+                estado_tramite = f"🔵 TOTAL A SU FAVOR: ${diferencia_final:,.2f}"
+                color_texto_final = "#007BFF"
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
-        st.write("Haga clic en el botón de copiar (ícono de las hojas empalmadas arriba a la derecha del cuadro negro) para copiar el texto libre de códigos:")
+        st.write("Pinte el recuadro blanco de abajo arrastrando el mouse, cópielo (Ctrl+C) y péguelo en Gmail:")
+        st.write("")
         
-        # ALINEACIÓN RÍGIDA: Calculamos los espacios exactos para que queden filas y columnas fijas al pegar en Gmail
-        p_str = f"{patente if patente else '_______'}"
-        dep_str   = f"${deposito:,.2f}"
-        aran_str  = f"${arancel:,.2f}"
-        pren_str  = f"${prenda:,.2f}"
-        sell_str  = f"${sell_alta:,.2f}"
-        alta_str  = f"${alta:,.2f}"
-        
-        cuerpo_email = (
-            f"PATENTE: {p_str}\n\n"
-            f"Deposito:          {dep_str}\n"
-            f"Arancel:           {aran_str}\n"
-            f"Sellado de prenda: {pren_str}\n"
-            f"Sellado:           {sell_str}\n"
-            f"Alta:              {alta_str}\n\n"
-            f"{estado_tramite}"
-        )
-
-        # Habilitamos st.code en modo texto puro para que el botón copie los datos alineados sin arrastrar programación de fondo
-        st.code(cuerpo_email, language="text", wrap_lines=True)
+        # RESTAURADO: Estructura de tabla con bordes invisibles (Garantiza el encolumnado milimétrico en Gmail)
+        st.markdown(f"""
+        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000; max-width: 450px; padding: 10px; background-color: #FFFFFF;">
+            <p style="margin: 0 0 10px 0; font-weight: bold;">PATENTE: {patente if patente else '_______'}</p>
+            <table style="width: 100%; border: 0; border-collapse: collapse;">
+                <tr><td style="width: 200px; padding: 2px 0;">Deposito:</td><td style="text-align: left; font-weight: bold;">${deposito:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Arancel:</td><td style="text-align: left;">${arancel:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Sellado de prenda:</td><td style="text-align: left;">${prenda:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Sellado:</td><td style="text-align: left;">${sell_alta:,.2f}</td></tr>
+                <tr><td style="padding: 2px 0;">Alta:</td><td style="text-align: left;">${alta:,.2f}</td></tr>
+            </table>
+            <br>
+            <p style="margin: 5px 0 0 0; font-weight: bold; color: {color_texto_final};">{estado_tramite}</p>
+        </div>
+        """, unsafe_allow_html=True)
