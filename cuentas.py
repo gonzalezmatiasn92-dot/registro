@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
+from logica import obtener_fecha_argentina
 
 def verificar_credenciales(supabase_client, usuario, clave):
-    """Verifica si el usuario existe, la clave coincide y está aprobado"""
     try:
         respuesta = supabase_client.table("usuarios").select("*").eq("usuario", usuario.strip()).execute()
         if respuesta.data:
@@ -21,7 +21,6 @@ def verificar_credenciales(supabase_client, usuario, clave):
         return False, f"Error de red: {e}", None
 
 def registrar_solicitud_usuario(supabase_client, usuario, clave):
-    """Inserta un nuevo empleado en estado Pendiente"""
     try:
         chequeo = supabase_client.table("usuarios").select("id").eq("usuario", usuario.strip()).execute()
         if chequeo.data:
@@ -53,11 +52,9 @@ def actualizar_rol_usuario(supabase_client, user_id, nuevo_rol):
         return False
 
 def renderizar_login_screen(supabase_client):
-    """Muestra la interfaz centralizada de Login / Registro"""
     st.markdown("<h1 style='text-align: center;'>🔐 Acceso al Sistema de Caja</h1>", unsafe_allow_html=True)
     st.write("")
-    
-    col_izq, col_cen, col_der = st.columns([1, 2, 1])
+    col_izq, col_cen, col_der = st.columns()
     with col_cen:
         modo = st.radio("Seleccione una opción:", ["Iniciar Sesión", "Solicitar Cuenta Nueva"], horizontal=True)
         st.markdown("---")
@@ -78,7 +75,6 @@ def renderizar_login_screen(supabase_client):
                         st.rerun()
                     else:
                         st.error(msj)
-                        
         else:
             u_reg = st.text_input("Elija su Nombre de Usuario (Ej: carlos_caja):", key="u_reg")
             c_reg = st.text_input("Elija su Contraseña:", type="password", key="c_reg")
@@ -93,27 +89,61 @@ def renderizar_login_screen(supabase_client):
                         st.error(msj)
 
 def renderizar_panel_gestion_personal(supabase_client):
-    """Pestaña exclusiva para Administradores y Encargados"""
-    st.header("👥 Gestión de Personal y Aprobación de Cuentas")
+    st.header("👥 Panel de Gestión de Personal y Reaperturas")
     st.markdown("---")
     
+    # 🔓 SECCIÓN DE APRECIACIÓN EN VIVO DE SOLICITUDES DE REAPERTURA DE CAJA
+    st.markdown("### 🔓 1. Solicitudes de Reapertura de Caja (Hoy)")
+    fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
+    
+    try:
+        # Buscamos en movimientos las solicitudes de reapertura pendientes de hoy
+        movs_hoy = supabase_client.table("movimientos").select("*").like("fecha_operacion", f"{fecha_hoy_str}%").execute().data or []
+        solicitudes = [m for m in movs_hoy if str(m.get("detalle", "")).startswith("SOLICITUD_REAPERTURA:")]
+        reaperturas_ya_aprobadas = [m.get("operador") for m in movs_hoy if str(m.get("detalle", "")).startswith("REAPERTURA_APROBADA_")]
+    except Exception as e:
+        solicitudes = []
+        reaperturas_ya_aprobadas = []
+
+    if solicitudes:
+        for sol in solicitudes:
+            if sol["operador"] not in reaperturas_ya_aprobadas:
+                c_user, c_mot, c_btn = st.columns([1, 2, 1])
+                c_user.write(f"👤 **Cajero:** `{sol['operador']}`")
+                # Filtramos el prefijo para mostrar solo la causa real tipeada
+                motivo_limpio = sol["detalle"].replace("SOLICITUD_REAPERTURA:", "")
+                c_mot.write(f"💬 **Motivo:** {motivo_limpio}")
+                
+                if c_btn.button("🔓 Aprobar Reapertura", key=f"ap_re_{sol['id']}", use_container_width=True):
+                    datos_aprobacion = {
+                        "detalle": f"REAPERTURA_APROBADA_{fecha_hoy_str}",
+                        "aranceles": 0.0, "sellados": 0.0, "patentes": 0.0, "otros": 0.0, "gastos": 0.0,
+                        "efectivo": 0.0, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0,
+                        "total_neto": 0.0,
+                        "operador": sol["operador"]
+                    }
+                    supabase_client.table("movimientos").insert(datos_aprobacion).execute()
+                    st.success(f"🔓 Caja desbloqueada para `{sol['operador']}` de forma definitiva.")
+                    st.rerun()
+            else:
+                st.info(f"✅ La solicitud del operador `{sol['operador']}` ya fue autorizada.")
+    else:
+        st.info("No hay solicitudes de empleados esperando autorización para reabrir planillas hoy.")
+
+    st.markdown("---")
     try:
         lista_usuarios = supabase_client.table("usuarios").select("*").order("id").execute().data or []
     except Exception as e:
         st.error(f"Error al conectar con la tabla de usuarios: {e}")
         return
 
-    if not lista_usuarios:
-        st.info("No hay usuarios registrados en el sistema.")
-        return
-
     pendientes = [u for u in lista_usuarios if u["estado"] == "Pendiente"]
     activos = [u for u in lista_usuarios if u["estado"] in ["Aprobado", "Bloqueado"]]
 
-    st.markdown("### ⏳ 1. Solicitudes de Alta Pendientes")
+    st.markdown("### ⏳ 2. Solicitudes de Alta de Empleados")
     if pendientes:
         for p in pendientes:
-            col_u, col_r, col_b1, col_b2 = st.columns([2, 1, 1, 1])
+            col_u, col_r, col_b1, col_b2 = st.columns(4)
             col_u.write(f"**Usuario:** `{p['usuario']}`")
             col_r.write(f"Rol sugerido: {p['rol']}")
             if col_b1.button("✅ Aprobar Acceso", key=f"ap_{p['id']}", use_container_width=True):
@@ -127,7 +157,7 @@ def renderizar_panel_gestion_personal(supabase_client):
         st.info("No hay solicitudes de empleados nuevos esperando aprobación.")
 
     st.markdown("---")
-    st.markdown("### 📋 2. Control de Personal Activo / Bloqueo")
+    st.markdown("### 📋 3. Control de Personal Activo / Bloqueo")
     
     if activos:
         df_activos = pd.DataFrame(activos)
