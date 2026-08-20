@@ -74,9 +74,17 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con indicador de fondo de cambio anterior"""
+    """Formulario interactivo de carga diaria con soporte de versiones e indicador de fondo de cambio anterior"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
-    
+    fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
+
+    # 🔐 CHEQUEO DE SEGURIDAD INTERNO: Si ya existe un cierre de hoy, congelamos la pantalla de carga
+    try:
+        chequeo_cierre = supabase_client.table("movimientos").select("id").eq("detalle", "Apertura de Caja: Fondo de Cambio del día anterior").like("fecha_operacion", f"{fecha_hoy_str}%").execute()
+        caja_cerrada_hoy = len(chequeo_cierre.data) > 0
+    except Exception:
+        caja_cerrada_hoy = False
+
     monto_fondo_inicial = 0.0
     try:
         apertura_reg = (
@@ -95,6 +103,10 @@ def renderizar_formulario(supabase_client):
     st.subheader(f"Planilla Diaria - Fecha: {fecha_hoy}")
     st.markdown(f"<span style='color: gray; font-size: 14px;'>💵 Cambio del dia anterior: <b>${monto_fondo_inicial:,.2f}</b></span>", unsafe_allow_html=True)
     st.write("")
+
+    if caja_cerrada_hoy:
+        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva. No se admiten nuevas cargas.")
+        return
 
     inyectar_estilos_bordes_inputs()
     
@@ -135,7 +147,7 @@ def renderizar_formulario(supabase_client):
     diferencia = round(total_cobrar - total_ingresado, 2)
     
     with col3:
-        st.markdown("#### 3. Validación")
+        st.markdown("#### 3. Validation")
         st.metric(label="Total a Cobrar", value=f"${total_cobrar:,.2f}")
         st.metric(label="Total Ingresado", value=f"${total_ingresado:,.2f}")
         
@@ -173,9 +185,19 @@ def renderizar_formulario(supabase_client):
             else:
                 st.error(msj)
 def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
-    """Muestra transacciones del día mediante st.dataframe clásico vinculada a colores.py"""
+    """Muestra transacciones del día controlando el botón de borrado mediante el cerrojo del cierre"""
     st.markdown("---")
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
+    
+    fecha_hoy_str = obtener_fecha_argentina().strftime("%Y-%m-%d")
+
+    # Volvemos a chequear para congelar las herramientas de borrado abajo
+    try:
+        chequeo_cierre = supabase_client.table("movimientos").select("id").eq("detalle", "Apertura de Caja: Fondo de Cambio del día anterior").like("fecha_operacion", f"{fecha_hoy_str}%").execute()
+        caja_cerrada_hoy = len(chequeo_cierre.data) > 0
+    except Exception:
+        caja_cerrada_hoy = False
+
     if movimientos_hoy:
         df = pd.DataFrame(movimientos_hoy)
         
@@ -203,7 +225,6 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         for col in ["id", "fecha_operacion_legible", "operador", "detalle"]:
             df_limpio[col] = df[col].fillna("").astype(str).replace("None", "").replace("nan", "")
 
-        # Vinculamos la función importada desde colores.py de forma directa y estable
         df_estilizado = df_limpio.style.apply(aplicar_colores_pasteles, axis=1)
         
         df_estilizado = df_estilizado.format({
@@ -222,7 +243,8 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
         with col_btn:
             st.write("")
             st.write("")
-            if st.button("Eliminar Registro Erróneo", type="secondary"):
+            # MODIFICADO: El botón de eliminar se bloquea automáticamente si la caja ya cerró
+            if st.button("Eliminar Registro Erróneo", type="secondary", disabled=caja_cerrada_hoy):
                 if id_eliminar:
                     exito, msj = eliminar_movimiento(supabase_client, id_eliminar)
                     if exito:
