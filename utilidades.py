@@ -71,7 +71,6 @@ def renderizar_panel_utilidades():
             st.write("")
             st.write("")
             
-            # SE MANTIENE EL CUADRADO ROJO DE ALERTA EN LA PANTALLA OPERATIVA
             if diferencia_final < 0:
                 st.markdown(f"""
                     <div style="background-color: rgba(255, 75, 75, 0.15); border-left: 5px solid rgb(255, 75, 75); padding: 15px; border-radius: 6px;">
@@ -79,7 +78,6 @@ def renderizar_panel_utilidades():
                         <span style="color: black; font-size: 24px; font-weight: bold; display: block; margin-top: 5px;">${abs(diferencia_final):,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-                # RECORTADO: Se quitó el 'debido a que' para que el texto final sea corto y directo
                 estado_tramite = f"FALTA DEPOSITAR: ${abs(diferencia_final):,.2f} LOS COSTOS SUPERAN EL DEPOSITO INICIAL"
             elif diferencia_final == 0:
                 st.markdown("""
@@ -100,17 +98,21 @@ def renderizar_panel_utilidades():
 
         st.markdown("---")
         st.markdown("##### ✉ Texto Confeccionado para Gmail")
-        st.write("Haga clic en el botón de copiar (ícono de las hojas empalmadas arriba a la derecha del cuadro negro) para copiar el texto 100% limpio:")
+        st.write("Haga clic en el botón de copiar (ícono de las hojas empalmadas arriba a la derecha) para copiar las columnas perfectas:")
         
-        # TEXTO PLANO PURIFICADO: Formato básico, idéntico a tu Excel y sin una sola línea de código adentro
+        # IMITACIÓN DE EXCEL CON ESPACIADOS FIJOS (Formato alineado como filas y columnas limpias)
         cuerpo_email = f"""PATENTE: {patente if patente else '_______'}
-Deposito: ${deposito:,.2f}
-Arancel: ${arancel:,.2f}
-Sellado de prenda: ${prenda:,.2f}
-Sellado: ${sell_alta:,.2f}
-Alta: ${alta:,.2f}
 
-{estado_tramite}"""
+Concepto               | Importe
+-----------------------|------------------
+Deposito               | ${deposito:,.2f}
+Arancel                | ${arancel:,.2f}
+Sellado de prenda      | ${prenda:,.2f}
+Sellado                | ${sell_alta:,.2f}
+Alta                   | ${alta:,.2f}
 
-        # st.code genera el botón oficial de copiado automático de Streamlit, garantizando que se guarde texto puro en el portapapeles
+--------------------------------------------------
+{estado_tramite}
+--------------------------------------------------"""
+
         st.code(cuerpo_email, language="text", wrap_lines=True)
