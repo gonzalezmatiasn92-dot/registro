@@ -74,11 +74,11 @@ def renderizar_sidebar(arba_quincena, aranceles_mensual, efectivo_caja, movimien
         st.subheader(f"${tot_neto:,.2f}")
 
 def renderizar_formulario(supabase_client):
-    """Formulario interactivo de carga diaria con soporte de versiones y bloqueo por fecha argentina"""
+    """Formulario interactivo de carga diaria con soporte de versiones y bloqueo con llave de reapertura"""
     fecha_hoy = obtener_fecha_argentina().strftime("%d/%m/%Y")
     ahora_arg = obtener_fecha_argentina()
+    usuario_activo = st.session_state.get("usuario_activo", "Sistema")
 
-    # 🔐 CORREGIDO: Buscador a prueba de husos horarios (Compara la fecha real de Argentina mapeando el timestamp)
     caja_cerrada_hoy = False
     monto_fondo_inicial = 0.0
     try:
@@ -92,10 +92,23 @@ def renderizar_formulario(supabase_client):
         )
         if apertura_reg.data and len(apertura_reg.data) > 0:
             monto_fondo_inicial = float(apertura_reg.data[0].get("efectivo") or 0.0)
-            # Pasamos la fecha del último cierre a zona horaria argentina
             dt_ultimo_cierre = parsear_fecha_supabase(apertura_reg.data[0].get("fecha_operacion"))
             if dt_ultimo_cierre and dt_ultimo_cierre.date() == ahora_arg.date():
                 caja_cerrada_hoy = True
+    except Exception:
+        pass
+
+    # 🔓 CONSULTA DE LLAVE DE REAPERTURA: Verificamos si el administrador ya aprobó la reapertura para hoy
+    try:
+        solicitud_aprobada = (
+            supabase_client.table("movimientos")
+            .select("id")
+            .eq("operador", usuario_activo)
+            .eq("detalle", f"REAPERTURA_APROBADA_{ahora_arg.strftime('%Y-%m-%d')}")
+            .execute()
+        )
+        if solicitud_aprobada.data:
+            caja_cerrada_hoy = False # Se desbloquea la pantalla temporalmente
     except Exception:
         pass
 
@@ -103,8 +116,29 @@ def renderizar_formulario(supabase_client):
     st.markdown(f"<span style='color: gray; font-size: 14px;'>💵 Cambio del dia anterior: <b>${monto_fondo_inicial:,.2f}</b></span>", unsafe_allow_html=True)
     st.write("")
 
+    # MODIFICADO INTERFAZ: Si está cerrada, esconde el formulario e inyecta la mensajería y el buzón de solicitudes
     if caja_cerrada_hoy:
-        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva. No se admiten nuevas cargas hasta mañana.")
+        st.error("🔒 La planilla diaria del día de hoy se encuentra cerrada de forma definitiva.")
+        
+        st.markdown("### 🔓 Solicitar reapertura de caja de emergencia")
+        motivo_reapertura = st.text_input("Declare el motivo detallado por el cual pide reabrirla:", key="motivo_reap_input")
+        
+        if st.button("🔓 Enviar solicitud de reapertura", use_container_width=True, type="primary"):
+            if not motivo_reapertura.strip():
+                st.warning("Por favor declare un motivo para enviar la solicitud.")
+            else:
+                datos_solicitud = {
+                    "detalle": f"SOLICITUD_REAPERTURA: {motivo_reapertura.strip()}",
+                    "aranceles": 0.0, "sellados": 0.0, "patentes": 0.0, "otros": 0.0, "gastos": 0.0,
+                    "efectivo": 0.0, "debito": 0.0, "transferencia": 0.0, "transferencia2": 0.0,
+                    "total_neto": 0.0,
+                    "operador": usuario_activo
+                }
+                exito, msj = guardar_movimiento(supabase_client, datos_solicitud)
+                if exito:
+                    st.success("✅ Solicitud enviada al panel del Administrador/Encargado con éxito. Aguarde la autorización en pantalla.")
+                else:
+                    st.error(msj)
         return
 
     inyectar_estilos_bordes_inputs()
@@ -189,8 +223,8 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
     st.subheader("🖥️ Movimientos Sincronizados Hoy (Todas las computadoras)")
     
     ahora_arg = obtener_fecha_argentina()
+    usuario_activo = st.session_state.get("usuario_activo", "Sistema")
 
-    # Volvemos a chequear usando la hora parseada de Argentina para blindar el botón de borrado abajo
     caja_cerrada_hoy = False
     try:
         apertura_reg = (
@@ -207,6 +241,19 @@ def renderizar_tabla_movimientos(supabase_client, movimientos_hoy):
                 caja_cerrada_hoy = True
     except Exception:
         caja_cerrada_hoy = False
+
+    try:
+        solicitud_aprobada = (
+            supabase_client.table("movimientos")
+            .select("id")
+            .eq("operador", usuario_activo)
+            .eq("detalle", f"REAPERTURA_APROBADA_{ahora_arg.strftime('%Y-%m-%d')}")
+            .execute()
+        )
+        if solicitud_aprobada.data:
+            caja_cerrada_hoy = False
+    except Exception:
+        pass
 
     if movimientos_hoy:
         df = pd.DataFrame(movimientos_hoy)
