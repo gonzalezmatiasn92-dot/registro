@@ -5,8 +5,9 @@ from planilladiaria import renderizar_sidebar, renderizar_formulario, renderizar
 from cierre import renderizar_cierre_caja
 from informes import renderizar_modulo_exportacion
 from cuentas import renderizar_login_screen, renderizar_panel_gestion_personal
-# INCORPORADO: Importamos la nueva función del asistente de mails y liquidación parcial
 from utilidades import renderizar_panel_utilidades
+# INCORPORADO: Importamos la nueva función del conciliador automático de Homebanking
+from transferencias import renderizar_modulo_transferencias
 
 st.set_page_config(
     page_title="Sistema Integral de Caja",
@@ -59,8 +60,8 @@ def main():
             st.session_state.rol_activo = ""
             st.rerun()
 
-    # INCORPORADO: Añadimos '🧰 Utilidades' en la botonera de navegación de pestañas
-    tabs_nombres = ["📝 Planilla Diaria", "🔒 Cierre de Caja / Arqueo", "🧰 Utilidades", "📥 Exportar Informes"]
+    # INCORPORADO: Añadimos '📲 Conciliar Transferencias' como pestaña central de la botonera general
+    tabs_nombres = ["📝 Planilla Diaria", "🔒 Cierre de Caja / Arqueo", "📲 Conciliar Transferencias", "🧰 Utilidades", "📥 Exportar Informes"]
     
     # Si ingresa el Dueño (Administrador) o el Encargado Titular, se inyecta la solapa administrativa al final
     if st.session_state.rol_activo in ["Administrador", "Encargado"]:
@@ -76,15 +77,18 @@ def main():
         renderizar_cierre_caja(supabase_client, efectivo_caja, movimientos_hoy)
         
     with pestanas[2]:
-        # INCORPORADO: Renderizado dinámico del panel de e-mails y Excel de patentes
-        renderizar_panel_utilidades()
+        # INCORPORADO: Renderizado dinámico del módulo conciliador de Banco Galicia
+        renderizar_modulo_transferencias(supabase_client)
         
     with pestanas[3]:
+        renderizar_panel_utilidades()
+        
+    with pestanas[4]:
         renderizar_modulo_exportacion(todos_los_movimientos)
         
-    # Condicional de renderizado exclusivo en pantalla para el bloque administrativo (Desplazado al índice 4)
+    # Condicional de renderizado exclusivo en pantalla para el bloque administrativo (Desplazado al índice 5)
     if st.session_state.rol_activo in ["Administrador", "Encargado"]:
-        with pestanas[4]:
+        with pestanas[5]:
             renderizar_panel_gestion_personal(supabase_client)
 
 if __name__ == "__main__":
